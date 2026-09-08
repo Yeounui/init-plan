@@ -105,6 +105,11 @@ env = { PLAN_RAG_DAEMON_IDLE_SECONDS = "120", PLAN_RAG_READ_READY_TIMEOUT_SECOND
 
 Restart the host after installing so it discovers the bundled skills.
 
+In Codex only `plan-rag` is usable today. `init-design`, `init-phases`, and
+`software-doc-suite` are written for Claude Code — they depend on its skill
+frontmatter, `AskUserQuestion`, and the `Agent` tool — so run those from Claude
+Code and use Codex for retrieval and plan updates through Plan RAG.
+
 ## Setup
 
 After the embedding model is available locally, one command configures each
