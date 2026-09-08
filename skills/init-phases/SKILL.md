@@ -79,6 +79,10 @@ Each item names its purpose in one line and the retrieved fact that needs it.
 - `.claude/rules/<name>.md`: conventions for one language or layer, `paths:`-gated.
 - `.claude/settings.json` hooks: a check that runs after every edit or before every
   stop — format, lint, or a fast test subset.
+- `.claude/check.sh`: the single build+test gate, always a Phase 1 item — configure when
+  needed, build, test, last line `OK: build + tests passed`. `/run-phase` runs it once per
+  phase, and its Stop hook in `.claude/settings.json` runs it when source files are dirty.
+  The template is this plugin's `snippets/check.sh`, filled from the toolchain section.
 - `.claude/agents/<name>.md`: only for a repeated task needing isolated context.
 - Every wrapped command comes from the toolchain section or `plan/USER.md`; a wrapper
   whose command is unknown is an `OPEN-NN [user]` item.
@@ -129,7 +133,7 @@ unrelated headings, tables, and wording.
   `stub exists` and phases at `generated`.
 - `plan/DECISIONS.md`: a `DEC-NN` with `Default:` and `Revisit when:` for each ordering
   settled among real alternatives, including one the user chose.
-- `plan/README.md`: `Next: Phase 1 — plan generated; review before implementation`, or the
+- `plan/README.md`: `Next: /run-phase 1 — plan generated; review it first`, or the
   `OPEN-NN` that blocks Phase 1; new items go under `## Open Items`; the document map
   lists the two new files.
 - The clause holding a blank carries `(OPEN-NN)` in its canonical document.
@@ -165,4 +169,4 @@ reports `complete=true` with an empty `errors` list.
 
 Report the phase list and its ordering, each blocked phase with the `OPEN-NN` blocking it,
 any gap that needs `/init-design` again, the test and harness counts, and the audit and
-index results.
+index results. End with `Next: /run-phase 1`, or the `OPEN-NN` that blocks Phase 1.

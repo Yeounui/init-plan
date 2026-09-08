@@ -1,16 +1,6 @@
 # plan/ARCHITECTURE.md — the design half
 
-Seven headings, fixed. `/init-phases` retrieves by heading name, and the document suite cites these sections rather than re-deriving a decomposition.
-
-| Heading | SDD clause it is the substrate for | SDS clause it seeds |
-|---|---|---|
-| `## Toolchain` | 2.2 design constraints | 2 architectural style |
-| `## Rules` | applied by every clause 5 subsection | 3 layering, 4 ownership, 5 error model, 6 concurrency, 7 state, 8 interface conventions |
-| `## Components` | 3.1, 3.2, 5, 6.2, 7.1–7.3, 9.1–9.2 | — |
-| `## Data` | 4.1, 4.2 | 4 ownership |
-| `## Interfaces` | 2.1, and the Interface field of 5 | 8 |
-| `## Budgets` | 8.2 shares | 9 budgets and limits |
-| `## Coverage` | 10.1 step → component | — |
+Seven headings, fixed, in this order: `## Toolchain`, `## Rules`, `## Components`, `## Data`, `## Interfaces`, `## Budgets`, `## Coverage`. `/init-phases` retrieves by heading name.
 
 ## Depth cap
 
@@ -50,7 +40,7 @@ Project-wide rules every component obeys, stated without naming one. Five areas:
 - Omit layering in a one-layer system, concurrency and ownership where nothing runs concurrently and no resource is exclusive, config where there is neither config nor secret; error model and interface conventions always apply. No `N/A` row.
 - A rule naming a component is that component's invariant or failure behavior; move it into its section.
 - One trigger, one subject, one response — a response joined with "and" is two rows; `SHOULD` carries `Unless:`, `MAY` carries `Default:`, and a rule with no check is advice.
-- The suite assigns `SDS-<AREA>-NN` on lifting these into an SDS; assign no second ID scheme here.
+- Rules carry no ID; a phase or a test cites a rule by its Area and its Check.
 
 ## Components
 

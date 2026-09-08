@@ -21,7 +21,7 @@ Before non-trivial work, gather context in this order:
 3. request task-relevant planning facts through `plan-rag`
 4. the files that will actually be changed
 
-Main Model reads `plan/README.md` directly as the bootstrap/fallback entry point (the `Next:` line, open items, document map). Retrieve and edit all other `plan/*.md` files through `plan-rag`; root bootstrap specs such as `plan.md` and `structure.md` sit outside the index and are read directly. Initial plan creation runs `init-design`, which writes the design — `plan/OVERVIEW.md`, `plan/ARCHITECTURE.md`, `plan/DECISIONS.md`, `plan/USER.md`, `plan/README.md` — and then `init-phases`, which reads that design through `plan-rag` and writes `plan/PHASES.md` and `plan/REVIEW.md`. A project whose `plan-rag` runs on a non-default document root has no write tools — there, retrieve through `plan-rag` but edit the file directly and call `sync_plan`.
+Main Model reads `plan/README.md` directly as the bootstrap/fallback entry point (the `Next:` line, open items, document map). Retrieve and edit all other `plan/*.md` files through `plan-rag`; root bootstrap specs such as `plan.md` and `structure.md` sit outside the index and are read directly. Initial plan creation runs `init-design`, which writes the design — `plan/OVERVIEW.md`, `plan/ARCHITECTURE.md`, `plan/DECISIONS.md`, `plan/USER.md`, `plan/README.md` — and then `init-phases`, which reads that design through `plan-rag` and writes `plan/PHASES.md` and `plan/REVIEW.md`. Implementation runs `run-phase`, one phase per invocation: it reads the phase and its components through `plan-rag`, and closes the phase in `plan/REVIEW.md` and the `Next:` line through `plan-rag`. A project whose `plan-rag` runs on a non-default document root has no write tools — there, retrieve through `plan-rag` but edit the file directly and call `sync_plan`.
 
 While gathering context, surface conflicts, stale state, missing context, or unclear goals.
 Do not silently guess around inconsistencies.
@@ -93,7 +93,8 @@ A closed ID remains findable in `plan/DECISIONS.md`.
 
 - `Next: init-design Step 7, round 2 — answer OPEN-03, OPEN-05`
 - `Next: /init-phases`
-- `Next: Phase 1 — plan generated; review before implementation`
+- `Next: /run-phase 1 — plan generated; review it first`
+- `Next: /run-phase 3 — Phase 2 verified`
 
 `Next:` and `## Open Items` are the whole resume state. Work continues from them alone.
 
@@ -105,7 +106,7 @@ A closed ID remains findable in `plan/DECISIONS.md`.
 - `tests/`: tests
 - `.claude/`: project harness (skills, agents, rules, hooks in `settings.json`); inventoried in the first phase of `plan/PHASES.md`
 - `plan/`: plans, process, decisions, review notes
-- `docs/`: implementer-facing document suite (SDD, SDS, SCS, API index); the SDD cites `plan/ARCHITECTURE.md` instead of restating it
+- `docs/`: human-facing documents; they cite `plan/` sections instead of restating them
 
 Do not put long code implementations inside Markdown.
 Move long code to `scripts/`, `snippets/`, or the real source tree, and leave paths plus usage notes in Markdown.
@@ -124,6 +125,7 @@ Use precise status terms:
 When the `Next:` line or an open item changes, update `plan/README.md` via `plan-rag` (`propose_plan_change` → review diff → `apply_plan_change`, or direct edit → `sync_plan` where the write tools are unavailable); record phase progress/verification status in `plan/REVIEW.md`.
 Status text should make the next action visible.
 Do not mark work as `verified` without a specific passing build, test, execution, or review result. Record the next action instead.
+A phase row in `plan/REVIEW.md` becomes `verified` only from `run-phase`'s close step, citing its check log and commit SHAs.
 
 ## Moving Or Deleting Files
 

@@ -1,7 +1,7 @@
 {
   "name": "init-plan",
   "version": "1.0.0",
-  "description": "Plan-document harness. In Codex, only the plan-rag skill is usable today: it retrieves source-backed plan evidence and safely updates plan/ through the Plan RAG MCP server. init-design, init-phases, and software-doc-suite are written for Claude Code.",
+  "description": "Plan-document harness. In Codex, only the plan-rag skill is usable today: it retrieves source-backed plan evidence and safely updates plan/ through the Plan RAG MCP server. init-design, init-phases, and run-phase are written for Claude Code.",
   "author": {
     "name": "Yeounui"
   },
@@ -17,7 +17,7 @@
   "interface": {
     "displayName": "Init Plan",
     "shortDescription": "Retrieve and update project plan documents through Plan RAG (Codex: plan-rag only).",
-    "longDescription": "Four skills plus a Plan RAG MCP server. In Codex, only plan-rag is usable today: it searches the indexed plan/ corpus for source-backed excerpts and safely updates the canonical documents. The other three skills are written for Claude Code and do not run in Codex: init-design writes a project's requirements, architecture, and decisions to plan/ from an intent document; init-phases turns that design into a test-and-harness phase plan; software-doc-suite routes content into SDD, API Docs, SDS, and SCS.",
+    "longDescription": "Four skills plus a Plan RAG MCP server. In Codex, only plan-rag is usable today: it searches the indexed plan/ corpus for source-backed excerpts and safely updates the canonical documents. The other two skills are written for Claude Code and do not run in Codex: init-design writes a project's requirements, architecture, and decisions to plan/ from an intent document; init-phases turns that design into a test-and-harness phase plan; run-phase implements one phase per run through a sweep, design, write, gate, commit, review batch loop.",
     "developerName": "Yeounui",
     "category": "Developer Tools",
     "defaultPrompt": [

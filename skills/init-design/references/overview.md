@@ -6,7 +6,7 @@ data, interfaces, budgets, coverage — is `plan/ARCHITECTURE.md`.
 
 ## Heading contract
 
-Six `##` headings, in this order, no others; `/init-phases` and the `docs/` suite select on these names. Every one
+Six `##` headings, in this order, no others; `/init-phases` selects on these names. Every one
 is present, and a blank inside one carries `(OPEN-NN)` on its clause plus a line in `plan/README.md`.
 
 | Heading | Holds | IDs |

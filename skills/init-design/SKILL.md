@@ -60,7 +60,7 @@ a blank for Step 6, not a row to fill in. A contradiction or `TODO` in the sourc
 settle it by choosing one side.
 
 A reference document is any document beyond the root bootstrap documents, the plan documents, and the
-rules: an architecture or migration note, a `docs/` suite file, an external or vendor spec, a PDF, a
+rules: an architecture or migration note, a `docs/` file, an external or vendor spec, a PDF, a
 changelog, a protocol description, existing source the design must fit.
 
 - One `Agent` call at `model: haiku` (`subagent_type: general-purpose`) per reference document, all

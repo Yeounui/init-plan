@@ -1,7 +1,7 @@
 {
   "name": "init-plan",
   "version": "1.0.0",
-  "description": "Plan-document harness for Claude Code: bootstrap a project's canonical plan/ documents in two steps (design, then phases), author the SDD/API/SDS/SCS document suite, and retrieve source-backed plan evidence through the bundled Plan RAG MCP server.",
+  "description": "Plan-document harness for Claude Code: bootstrap a project's canonical plan/ documents in two steps (design, then phases), implement one phase per run with a sweep-design-write-gate-commit-review batch loop, and retrieve source-backed plan evidence through the bundled Plan RAG MCP server.",
   "author": {
     "name": "Yeounui"
   }

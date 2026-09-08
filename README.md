@@ -14,11 +14,14 @@ plan, and makes the implementing model read that plan completely while it works.
 3. `/init-phases` — retrieves that design through `plan-rag` and writes per-requirement and
    per-scenario tests, the harness, and implementation phases carrying
    `Covers:`/`Touches:`/`Verify:` into `plan/`.
-4. The Plan RAG MCP server indexes `plan/` with a local BGE-M3. The implementing model does not
+4. `/run-phase N` — implements one phase per run: retrieves the phase and its components
+   through `plan-rag`, sweeps the blast radius with Haiku agents, has one Opus agent design the
+   exact edits, lets file-disjoint Sonnet writers implement them, runs the project's single
+   build+test gate once, commits one cluster at a time, reviews the committed range with
+   Codex (or one Opus reviewer), and marks the phase `verified` in `plan/REVIEW.md`.
+5. The Plan RAG MCP server indexes `plan/` with a local BGE-M3. The implementing model does not
    guess at whole documents; it retrieves evidence, reads it, and keeps the plan in sync as it
    works.
-5. `software-doc-suite` is optional. When an implementer-facing `docs/` suite (SDD, SDS, SCS,
-   API) is needed, it is built from `plan/ARCHITECTURE.md`.
 
 This makes the Claude Academy flow [`intent.md` → requirements/design → plan mode]
 (https://academy.claude.com/courses/ai-native-sdlc-playbook) repeatable inside a project.
@@ -29,12 +32,12 @@ This makes the Claude Academy flow [`intent.md` → requirements/design → plan
 |-------|------------|
 | `init-design` | Reads `intent.md` and writes the scenario (`SC-NN`) and requirement (`R-NN`) specification, the architecture with contracts and budgets (`B-NN`), decisions (`DEC-NN`), and user constraints into `plan/`. The main model frames the whole; one Opus subagent per component designs its detail, one Haiku agent per reference document reads it, and the main model merges the returns, reconciles them, and asks the user only the choices that need them. |
 | `init-phases` | Retrieves that design through `plan-rag` and writes per-requirement and per-scenario tests, the harness, and per-phase `Covers:`/`Touches:`/`Verify:` into `plan/`. |
+| `run-phase` | Implements one phase as a batch: Haiku sweep → one Opus designer → Haiku gap check → parallel Sonnet writers → one Sonnet build-fixer running `.claude/check.sh` once → one commit per cluster → Codex range review (Opus fallback) → `plan-rag` closes the phase. Ships the `sweeper` agent and three Workflow scripts. |
 | `plan-rag` | Retrieves only file- and line-backed context from the indexed `plan/`, and syncs the plan and the index safely after implementation or document changes. |
-| `software-doc-suite` | Builds the implementer-facing SDD, SDS, SCS, and API document suite from `plan/ARCHITECTURE.md`. |
 
-The order is `intent.md` → `/init-design` → `/init-phases` → implementation (`plan-rag`), with
-`software-doc-suite` added when needed. The model does not invoke `init-design` or
-`init-phases` on its own; the user runs them as slash commands. To continue after the context
+The order is `intent.md` → `/init-design` → `/init-phases` → `/run-phase N`, once per phase
+(`plan-rag` throughout). The model does not invoke `init-design`, `init-phases`, or
+`run-phase` on its own; the user runs them as slash commands. To continue after the context
 is reset, check the `Next:` line and `## Open Items` in `plan/README.md`.
 
 ## Plan RAG MCP server
@@ -50,8 +53,10 @@ will not start until [Setup](#setup) is done.
 
 ## Prerequisites
 
-The four skills are plain Markdown and work as soon as the plugin is
-installed. Everything below is for Plan RAG — without it you lose retrieval,
+The skills are plain Markdown and work as soon as the plugin is installed.
+`run-phase` additionally needs Claude Code's `Workflow` tool and, for its
+review step, the Codex plugin — without Codex it falls back to one Opus
+reviewer. Everything below is for Plan RAG — without it you lose retrieval,
 `init-phases` (which reads the design through Plan RAG), and the audit steps
 of `init-design`, but nothing else.
 
@@ -106,9 +111,8 @@ env = { PLAN_RAG_DAEMON_IDLE_SECONDS = "120", PLAN_RAG_READ_READY_TIMEOUT_SECOND
 Restart the host after installing so it discovers the bundled skills.
 
 In Codex only `plan-rag` is usable today. `init-design`, `init-phases`, and
-`software-doc-suite` are written for Claude Code — they depend on its skill
-frontmatter, `AskUserQuestion`, and the `Agent` tool — so run those from Claude
-Code and use Codex for retrieval and plan updates through Plan RAG.
+`run-phase` are written for Claude Code — they depend on its skill frontmatter,
+`AskUserQuestion`, and the `Agent` and `Workflow` tools — so run those from Claude Code and use Codex for retrieval and plan updates through Plan RAG.
 
 ## Setup
 
@@ -241,9 +245,11 @@ Writes are supported only for the default canonical `plan/` layout. A custom
 ## Repository layout
 
 ```
-skills/     init-design, init-phases, software-doc-suite, plan-rag
+skills/     init-design, init-phases, run-phase (+ scripts/: the three Workflow scripts), plan-rag
+agents/     sweeper — the Haiku blast-radius sweeper run-phase spawns
 rules/      Edit_Workflow.md (canonical placements), Doc_Authoring.md
-snippets/   intent-template.md — what the user writes before /init-design
+snippets/   intent-template.md — what the user writes before /init-design;
+            check.sh — template for the project's single build+test gate
 plan-rag/   the MCP server: Python package, uv.lock, wrapper and setup scripts
 .mcp.json   registers plan-rag for Claude Code
 ```
