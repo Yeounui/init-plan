@@ -186,7 +186,9 @@ class FlagEmbeddingBgeM3Client:
                 from FlagEmbedding import BGEM3FlagModel
             except ImportError as error:
                 raise EmbeddingError(
-                    "FlagEmbedding backend requested but FlagEmbedding is not installed"
+                    "FlagEmbedding backend requested but FlagEmbedding is not "
+                    "installed; rebuild the Plan RAG environment with: "
+                    "uv sync --frozen"
                 ) from error
             self._model_class = BGEM3FlagModel
         return self._model_class(

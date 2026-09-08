@@ -1,24 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Repo that holds the plan_rag package (this script lives in <repo>/scripts/, the
-# package is a flat plan_rag/ at the repo root — not a src/ layout).
+# Repo that holds the plan_rag package and its uv project (this script lives in
+# <repo>/scripts/; the package is a flat plan_rag/ at the repo root).
 SCRIPT_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHONPATH_VALUE="${SCRIPT_REPO}"
-if [[ -n "${PYTHONPATH:-}" ]]; then
-  PYTHONPATH_VALUE="${PYTHONPATH_VALUE}:${PYTHONPATH}"
-fi
-
-# Plan RAG always runs in its own pinned conda env, independent of the consuming
-# project's CONDA_ENV (which is project-specific). The value is stored here and
-# referenced at launch; override with PLAN_RAG_CONDA_ENV only if ever needed.
-PLAN_RAG_CONDA_ENV="${PLAN_RAG_CONDA_ENV:-codex}"
+VENV_PYTHON="${SCRIPT_REPO}/.venv/bin/python"
 
 # The consuming project is the explicit project root or the MCP launch cwd. Its
-# plan/ docs and .plan-rag state are rooted here, and its .env carries runtime config
-# (PLAN_RAG_EMBEDDING_*, PLAN_RAG_STATE_DIR, CONDA_SH, ...) that plan_rag reads
-# from os.environ only. Source it for that config, but DO NOT use its CONDA_ENV
-# for activation — plan-rag pins its own env above.
+# plan/ docs and .plan-rag state are rooted here, and its .env carries runtime
+# config (PLAN_RAG_EMBEDDING_*, PLAN_RAG_STATE_DIR, ...) that plan_rag reads
+# from os.environ only.
 CONSUMER_ROOT_VALUE="${PLAN_RAG_PROJECT_ROOT:-${PWD}}"
 if [[ ! -d "${CONSUMER_ROOT_VALUE}" ]]; then
   printf 'plan-rag: project root does not exist: %s\n' "${CONSUMER_ROOT_VALUE}" >&2
@@ -32,13 +23,18 @@ if [[ -f "${CONSUMER_ROOT}/.env" ]]; then
   set +a
 fi
 
-if [[ -z "${CONDA_SH:-}" ]]; then
-  printf 'plan-rag: CONDA_SH not set (expected in %s/.env, alongside PLAN_RAG_EMBEDDING_BACKEND and PLAN_RAG_EMBEDDING_MODEL_PATH)\n' "${CONSUMER_ROOT}" >&2
-  exit 1
+# Plan RAG runs from its own uv-managed .venv inside this repo — no ambient
+# interpreter, no shared environment to keep in sync. Build it on first use;
+# uv resolves nothing at runtime because uv.lock is committed. Progress goes to
+# stderr: stdout carries MCP JSON-RPC only.
+if [[ ! -x "${VENV_PYTHON}" ]]; then
+  if ! command -v uv >/dev/null 2>&1; then
+    printf 'plan-rag: uv is required and was not found on PATH.\n' >&2
+    printf 'plan-rag: install it (https://docs.astral.sh/uv/) then run: uv sync --frozen --project %s\n' "${SCRIPT_REPO}" >&2
+    exit 1
+  fi
+  printf 'plan-rag: creating %s/.venv from uv.lock (first run, this takes a while)\n' "${SCRIPT_REPO}" >&2
+  uv sync --frozen --project "${SCRIPT_REPO}" >&2
 fi
 
-# shellcheck disable=SC1090
-source "${CONDA_SH}"
-conda activate "${PLAN_RAG_CONDA_ENV}"
-exec env PYTHONPATH="${PYTHONPATH_VALUE}" \
-  python -m plan_rag.cli --project-root "${CONSUMER_ROOT}" "$@"
+exec "${VENV_PYTHON}" -m plan_rag.cli --project-root "${CONSUMER_ROOT}" "$@"

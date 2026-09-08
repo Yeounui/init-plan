@@ -25,8 +25,24 @@ a local BGE-M3 embedding backend. One shared daemon per project root serves all
 concurrent MCP clients; state lives in that project's `.plan-rag/`. Details in
 [`plan-rag/README.md`](plan-rag/README.md).
 
-The plugin's `.mcp.json` registers it automatically for Claude Code. It needs
-setup before it will start — see [Setup](#setup).
+The plugin's `.mcp.json` registers it automatically for Claude Code, but it
+will not start until [Setup](#setup) is done.
+
+## Prerequisites
+
+The three skills are plain Markdown and work as soon as the plugin is
+installed. Everything below is for Plan RAG — without it you lose retrieval and
+the audit steps of `init-plan`, but nothing else.
+
+| Need | Why | Check |
+|------|-----|-------|
+| [`uv`](https://docs.astral.sh/uv/getting-started/installation/) | Builds Plan RAG's `.venv` from the committed `uv.lock`. It also fetches its own CPython, so no system or conda Python is required. | `uv --version` |
+| Linux or macOS, bash | `plan-rag.sh` is a bash wrapper | `bash --version` |
+| ~8 GB disk | `.venv` (PyTorch dominates) plus the BGE-M3 weights and the index | — |
+| NVIDIA GPU + CUDA *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own | `nvidia-smi` |
+
+Nothing else is shared with the host: Plan RAG never touches an ambient
+interpreter, and it resolves no dependencies at runtime.
 
 ## Install
 
@@ -70,38 +86,96 @@ Restart the host after installing so it discovers the bundled skills.
 
 ## Setup
 
-Plan RAG is the only part with prerequisites. The skills work without it, but
-`plan-rag` and the audit steps of `init-plan` will not.
+Steps 1–2 are once per machine, steps 3–4 once per project.
 
-1. **Conda environment.** The wrapper activates its own pinned env (default
-   `codex`, override with `PLAN_RAG_CONDA_ENV`) and installs its dependencies
-   there:
+`PLUGIN` below is wherever the plugin landed — the path you passed to `--from`,
+or `~/.claude/plugins/…/init-plan` after a GitHub install.
 
-   ```bash
-   bash plan-rag/scripts/install-plan-rag-deps.sh
-   ```
+### 1. Build the environment
 
-2. **Embedding model.** Download [BGE-M3](https://huggingface.co/BAAI/bge-m3)
-   locally and note its path.
+```bash
+uv sync --frozen --project "$PLUGIN/plan-rag"
+```
 
-3. **Consuming project `.env`.** Plan RAG reads its runtime config from the
-   *project* it is launched against, not from this plugin. Copy
-   [`.env.example`](.env.example) into that project's `.env` and fill in
-   `CONDA_SH` and `PLAN_RAG_EMBEDDING_MODEL_PATH`.
+That creates `$PLUGIN/plan-rag/.venv` from `uv.lock` — same versions on every
+machine, nothing resolved at install time. Expect a few GB and a few minutes,
+almost all of it PyTorch.
 
-   The plugin checks this on session start (`scripts/check-env.sh`, wired
-   through `hooks/hooks.json`) and prints the exact lines to add when either
-   value is missing or empty. It never writes `.env` itself — ask Claude to
-   add them once you have the two paths, then restart so the MCP server picks
-   them up. Configured projects see nothing.
+`plan-rag.sh` runs this itself if `.venv` is missing, but an MCP host times out
+long before it finishes. Run it once by hand after installing.
 
-4. **Rules.** `init-plan` and `plan-rag` write to placements defined in
-   `.claude/rules/Edit_Workflow.md`. Copy the two rule files into the
-   consuming project once:
+### 2. Embedding model
 
-   ```bash
-   mkdir -p .claude/rules && cp rules/*.md .claude/rules/
-   ```
+FlagEmbedding + BGE-M3 is the only embedding backend and it loads from a local
+directory — Plan RAG downloads nothing at runtime. The `hf` CLI ships in the
+environment you just built:
+
+```bash
+"$PLUGIN/plan-rag/.venv/bin/hf" download BAAI/bge-m3 --local-dir ~/models/bge-m3
+```
+
+The path you pass to `--local-dir` becomes `PLAN_RAG_EMBEDDING_MODEL_PATH`.
+Plan RAG refuses to start if it is unset or is not an existing directory.
+
+### 3. Project `.env`
+
+Plan RAG reads its runtime config from the *project* it is launched against,
+not from this plugin. Copy [`.env.example`](.env.example) into that project and
+fill in the model path:
+
+```bash
+cp "$PLUGIN/.env.example" .env
+```
+
+```bash
+PLAN_RAG_EMBEDDING_BACKEND=flag_embedding
+PLAN_RAG_EMBEDDING_MODEL_PATH=/home/you/models/bge-m3
+```
+
+If you skip this, the MCP server still starts and still advertises all its
+tools — calling any of them returns the reason instead of failing silently, so
+Claude can tell you what to set. The same holds for an incomplete environment:
+the error names the missing package and the `uv sync` command that installs it.
+
+Add `.plan-rag/` to the project's `.gitignore`; it is a rebuildable index.
+
+### 4. Rules
+
+`init-plan` and `plan-rag` write to placements defined in
+`.claude/rules/Edit_Workflow.md`. Copy the two rule files into the project
+once:
+
+```bash
+mkdir -p .claude/rules && cp "$PLUGIN"/rules/*.md .claude/rules/
+```
+
+### Verify
+
+From the project root:
+
+```bash
+bash "$PLUGIN/plan-rag/scripts/plan-rag.sh" status
+```
+
+It prints the document root, file/chunk/vector counts, and anything pending.
+The first run loads the model, so give it a minute. Failures name the variable
+that is wrong.
+
+## Configuration
+
+Everything Plan RAG reads lives in [`.env.example`](.env.example); the ones
+worth knowing:
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `PLAN_RAG_EMBEDDING_MODEL_PATH` | *(required)* | local BGE-M3 directory |
+| `PLAN_RAG_EMBEDDING_DEVICE` | `auto` | `cuda:0` when a GPU is free, else `cpu` |
+| `PLAN_RAG_EMBEDDING_USE_FP16` | `true` | half precision on GPU |
+| `PLAN_RAG_DOCUMENT_ROOT` | `plan` | corpus directory, relative to the project |
+| `PLAN_RAG_STATE_DIR` | `.plan-rag` | index, daemon socket, and logs |
+
+Writes are supported only for the default canonical `plan/` layout. A custom
+`PLAN_RAG_DOCUMENT_ROOT` is retrieval-only.
 
 ## Repository layout
 
@@ -109,9 +183,7 @@ Plan RAG is the only part with prerequisites. The skills work without it, but
 skills/     init-plan, software-doc-suite, plan-rag
 rules/      Edit_Workflow.md (canonical placements), Doc_Authoring.md
 snippets/   spec-template.md — the preferred bootstrap spec shape
-plan-rag/   the MCP server: Python package, tests, wrapper scripts
-hooks/      SessionStart check for the .env values plan-rag needs
-scripts/    check-env.sh, run by that hook
+plan-rag/   the MCP server: Python package, uv.lock, tests, wrapper script
 .mcp.json   registers plan-rag for Claude Code
 ```
 

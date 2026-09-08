@@ -6,27 +6,32 @@ build-backend = "setuptools.build_meta"
 name = "plan-rag"
 version = "0.1.0"
 description = "Local retrieval and workflow service for canonical project plans"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
-    "mcp",
+    # mcp 2.x renames FastMCP to MCPServer; plan_rag.mcp_server uses the v1 API.
+    "mcp<2",
     "pydantic>=2",
-]
-
-[project.optional-dependencies]
-index = [
-    "chromadb",
+    "chromadb>=1.5.9",
     "watchdog",
-]
-bge = [
     "FlagEmbedding",
     "torch",
 ]
-test = [
+
+[dependency-groups]
+dev = [
     "pytest",
 ]
 
 [project.scripts]
 plan-rag = "plan_rag.cli:main"
+
+[tool.uv]
+# Build .venv on a uv-managed CPython, so the repo does not depend on a
+# system or conda interpreter being present.
+python-preference = "managed"
+
+[tool.setuptools]
+packages = ["plan_rag"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

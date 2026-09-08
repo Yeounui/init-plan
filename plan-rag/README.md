@@ -22,14 +22,10 @@ same normalized root. Keep stdout clean: the
 proxy writes MCP JSON-RPC only, while daemon diagnostics are written to
 `.plan-rag/daemon.log` (and daemon stderr).
 
-The wrapper activates only its dedicated Conda environment:
-
-```bash
-export PLAN_RAG_CONDA_ENV=codex  # default
-```
-
-It may source the consumer project's `.env` for Plan RAG settings, but it does
-not inherit that project's `CONDA_ENV`.
+The wrapper runs the package from its own `.venv` at this repo's root, built
+by `uv` from the committed `uv.lock`. It creates that venv on first use and
+never resolves dependencies at runtime. It sources the consumer project's
+`.env` for Plan RAG settings, but takes no interpreter or environment from it.
 
 The daemon installs its watcher before its initial incremental catch-up sync.
 Changes are coalesced with a two-second quiet period and then synchronized in
@@ -207,18 +203,23 @@ Shared heading relations connect chunks in different files with up to five
 neighbors per heading. Tune the cap with
 `PLAN_RAG_SHARED_RELATION_MAX_NEIGHBORS`.
 
-## Conda Dependencies
+## Dependencies
 
-Install the additional packages into the shared `codex` environment with
-`mamba`:
+Everything is pinned in `uv.lock` and installed into `.venv` at this repo's
+root:
 
 ```bash
-bash scripts/install-plan-rag-deps.sh
+uv sync --frozen          # runtime
+uv sync --frozen --group dev   # plus pytest
 ```
 
-The script deliberately preserves the existing FastAPI and LiteLLM versions
-while installing Chroma for caller-supplied embeddings. It finishes with import
-and persistent-vector smoke checks.
+`scripts/plan-rag.sh` does the first sync itself if `.venv` is missing, but an
+MCP host will usually time out waiting for it — run the command once after
+installing. When the daemon cannot start at all, the proxy still serves MCP
+with the real tool schemas and every call returns the reason, read out of
+`.plan-rag/daemon.log`: the missing package plus the `uv sync` command, or the
+configuration error verbatim. Chroma is used with caller-supplied embeddings only; its default
+ONNX embedding stack is never loaded.
 
 ## BGE-M3 Model Setup
 

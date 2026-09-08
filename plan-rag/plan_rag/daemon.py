@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import signal
 import socket
 import socketserver
@@ -302,7 +303,15 @@ def run_daemon(settings: Settings) -> None:
 def run_proxy(settings: Settings, *, startup_timeout_seconds: float = 20.0) -> None:
     paths = daemon_paths(settings)
     paths.state_dir.mkdir(parents=True, exist_ok=True)
-    connection = _connect_or_start(settings, paths, startup_timeout_seconds)
+    try:
+        connection = _connect_or_start(settings, paths, startup_timeout_seconds)
+    except Exception as error:
+        # The daemon never came up — usually an incomplete environment or an
+        # unset model path. Serve MCP anyway so the client is told why.
+        from plan_rag.mcp_server import run_unavailable_mcp
+
+        run_unavailable_mcp(str(error))
+        return
     try:
         _proxy_stdio(connection)
     finally:
@@ -371,8 +380,31 @@ def _wait_for_daemon(
     detail = f": {last_error}" if last_error else ""
     raise RuntimeError(
         f"Plan RAG daemon did not start within {timeout:g}s; "
-        f"see {paths.log_file}{detail}"
+        f"see {paths.log_file}{detail}{_startup_guidance(paths)}"
     )
+
+
+_MISSING_MODULE = re.compile(r"ModuleNotFoundError: No module named '([^']+)'")
+_KNOWN_ERROR = re.compile(r"(?:EmbeddingError|RuntimeError|OSError): (.+)")
+
+
+def _startup_guidance(paths: DaemonPaths) -> str:
+    """Turn the dead daemon's traceback into an instruction the caller can act on."""
+    try:
+        tail = paths.log_file.read_text(errors="replace")[-8192:]
+    except OSError:
+        return ""
+    missing = _MISSING_MODULE.findall(tail)
+    if missing:
+        repo = Path(__file__).resolve().parents[1]
+        return (
+            f". The Plan RAG environment is missing {missing[-1]!r}. Rebuild it "
+            f"with: uv sync --frozen --project {repo}"
+        )
+    known = _KNOWN_ERROR.findall(tail)
+    if known:
+        return f". {known[-1].strip()}"
+    return ""
 
 
 def _try_connect(endpoint: str) -> socket.socket | None:

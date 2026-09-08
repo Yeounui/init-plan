@@ -22,7 +22,8 @@ class ChromaPlanStore:
             import chromadb
         except ImportError as error:
             raise RuntimeError(
-                "chromadb is required for vector indexing; install the index extra"
+                "chromadb is required for vector indexing; rebuild the Plan "
+                "RAG environment with: uv sync --frozen"
             ) from error
 
         path.mkdir(parents=True, exist_ok=True)

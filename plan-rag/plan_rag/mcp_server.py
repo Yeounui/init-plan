@@ -172,6 +172,26 @@ def create_mcp_server(
     return mcp
 
 
+class _Unavailable:
+    """Stands in for the service and workflow when Plan RAG cannot start.
+
+    Every attribute access raises, so `create_mcp_server` still registers the
+    real tools with their real schemas and any call reports the reason instead
+    of the client seeing a bare closed connection.
+    """
+
+    def __init__(self, reason: str) -> None:
+        self._reason = reason
+
+    def __getattr__(self, name: str) -> Any:
+        raise RuntimeError(self._reason)
+
+
+def run_unavailable_mcp(reason: str) -> None:
+    stub = _Unavailable(reason)
+    anyio.run(_run_stdio_compat, create_mcp_server(stub, stub))
+
+
 def run_mcp(service: PlanRagService, workflow: PlanWorkflow) -> None:
     # Keep MCP startup responsive for clients with short tool-discovery timeouts.
     # Call sync_plan(full=True) explicitly when the plan corpus must be rebuilt.
