@@ -37,4 +37,8 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
   uv sync --frozen --project "${SCRIPT_REPO}" >&2
 fi
 
-exec "${VENV_PYTHON}" -m plan_rag.cli --project-root "${CONSUMER_ROOT}" "$@"
+# Drop any inherited PYTHONPATH/PYTHONHOME: plan_rag lives in the venv, and an
+# ambient path (ROS, conda, another project) would otherwise shadow its
+# dependencies.
+exec env -u PYTHONPATH -u PYTHONHOME "${VENV_PYTHON}" \
+  -m plan_rag.cli --project-root "${CONSUMER_ROOT}" "$@"

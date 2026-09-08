@@ -99,9 +99,14 @@ uv sync --frozen --project "$PLUGIN/plan-rag"
 
 That creates `$PLUGIN/plan-rag/.venv` from `uv.lock` — same versions on every
 machine, nothing resolved at install time. Expect ~6 GB, almost all of it
-PyTorch. On a slow link the CUDA wheels can outrun uv's 30-second per-request
-timeout; if the sync reports one, rerun it as
-`UV_HTTP_TIMEOUT=600 uv sync --frozen --project "$PLUGIN/plan-rag"`.
+PyTorch. On a slow link uv's default parallelism starves each of the big CUDA
+wheels until they hit its 30-second per-request timeout; if the sync fails that
+way, rerun it serially:
+
+```bash
+UV_CONCURRENT_DOWNLOADS=2 UV_HTTP_TIMEOUT=1800 \
+  uv sync --frozen --project "$PLUGIN/plan-rag"
+```
 
 `plan-rag.sh` runs this itself if `.venv` is missing, but an MCP host times out
 long before it finishes. Run it once by hand after installing.
