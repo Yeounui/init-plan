@@ -94,6 +94,7 @@ class PlanRagService:
         self._lock = threading.RLock()
         self.writer_lock = InterProcessFileLock(self.store.path.parent / "sync.lock")
         self.runtime_status_provider: Callable[[], dict[str, object]] | None = None
+        self.last_vector_search_error: str | None = None
 
     @contextmanager
     def operation(self):
@@ -513,8 +514,10 @@ class PlanRagService:
                     top_k=max(top_k * 2, top_k),
                     filters=filters,
                 )
-            except Exception:
+                self.last_vector_search_error = None
+            except Exception as error:
                 vector_results = []
+                self.last_vector_search_error = str(error) or type(error).__name__
         results = self._fuse(
             vector_results, keyword_results, top_k=max(top_k * 2, top_k)
         )
@@ -551,6 +554,8 @@ class PlanRagService:
         device_status = getattr(self.embedder, "device_status", None)
         if isinstance(device_status, dict):
             status["embedding_device"] = device_status
+        if self.last_vector_search_error is not None:
+            status["vector_search_error"] = self.last_vector_search_error
         if self.runtime_status_provider is not None:
             status.update(self.runtime_status_provider())
         return status

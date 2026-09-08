@@ -79,7 +79,9 @@ def create_mcp_server(
 
     @mcp.tool()
     def get_plan_status() -> dict[str, Any]:
-        """Return a one-line index summary plus freshness problems when present."""
+        """Return a one-line index summary, embedding/vector health, and freshness
+        problems when present, plus a "next" hint naming the command to run when
+        something is degraded."""
         if coordinator is not None and not coordinator.status()["ready"]:
             return {"index": f"{service.quick_status()['document_root']} starting"}
         with _ready_operation(service, coordinator):
@@ -97,6 +99,18 @@ def create_mcp_server(
         }
         if freshness:
             response["freshness"] = freshness
+        embedding_device = status.get("embedding_device")
+        if isinstance(embedding_device, dict):
+            response["embedding_device"] = (
+                f"{embedding_device['effective']} ({embedding_device['reason']})"
+            )
+        response["vector_available"] = status.get("vector_available", False)
+        vector_search_error = status.get("vector_search_error")
+        if vector_search_error:
+            response["vector_search_error"] = vector_search_error
+        next_action = _next_action(status, vector_search_error, freshness)
+        if next_action:
+            response["next"] = next_action
         return response
 
     @mcp.tool(structured_output=False)
@@ -205,6 +219,26 @@ def _ready_operation(
     if coordinator is None:
         return service.operation() if hasattr(service, "operation") else nullcontext()
     return coordinator.ready_operation()
+
+
+def _next_action(
+    status: dict[str, Any],
+    vector_search_error: str | None,
+    freshness: dict[str, list[str]],
+) -> str | None:
+    """Name the single most useful next command, or None when nothing is wrong."""
+    if status.get("embedding_device") is None and not status.get("vector_available"):
+        return (
+            "embedding backend unavailable; check PLAN_RAG_EMBEDDING_MODEL_PATH "
+            "in this project's .env, or read .plan-rag/daemon.log for the cause"
+        )
+    if vector_search_error:
+        return "vector search failed; retry, or run sync_plan if it persists"
+    if freshness:
+        return "run sync_plan to refresh stale/missing/unindexed files"
+    if status.get("pending_vectors"):
+        return "run sync_plan to catch up pending vector embeddings"
+    return None
 
 
 def _chunk_lines(

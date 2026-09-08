@@ -154,7 +154,11 @@ current on-disk content of the files involved in a response; a final
 was deleted) after indexing. `get_plan_status` returns a one-line `index`
 summary of document root, files, chunks, relations, vectors, and pending
 vectors, plus a `freshness` map of stale, missing, and unindexed files when any
-exist; during startup it returns the index line immediately.
+exist; during startup it returns the index line immediately. It also reports
+`embedding_device` (effective device and reason), `vector_available`, a
+`vector_search_error` when the last vector search failed and fell back to
+FTS-only, and a `next` hint naming the single most useful command when
+something above is degraded.
 
 ## Storage and Failure Behavior
 
