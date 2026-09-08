@@ -39,7 +39,7 @@ the audit steps of `init-plan`, but nothing else.
 | [`uv`](https://docs.astral.sh/uv/getting-started/installation/) | Builds Plan RAG's `.venv` from the committed `uv.lock`. It also fetches its own CPython, so no system or conda Python is required. | `uv --version` |
 | Linux or macOS, bash | `plan-rag.sh` is a bash wrapper | `bash --version` |
 | ~8 GB disk | `.venv` (PyTorch dominates) plus the BGE-M3 weights and the index | — |
-| NVIDIA GPU + CUDA *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own | `nvidia-smi` |
+| NVIDIA GPU *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own. Linux pins the CUDA 12.8 PyTorch build, so the driver must support CUDA 12.8 or newer — an older one silently means CPU. | `nvidia-smi` |
 
 Nothing else is shared with the host: Plan RAG never touches an ambient
 interpreter, and it resolves no dependencies at runtime.
@@ -98,8 +98,10 @@ uv sync --frozen --project "$PLUGIN/plan-rag"
 ```
 
 That creates `$PLUGIN/plan-rag/.venv` from `uv.lock` — same versions on every
-machine, nothing resolved at install time. Expect a few GB and a few minutes,
-almost all of it PyTorch.
+machine, nothing resolved at install time. Expect ~6 GB, almost all of it
+PyTorch. On a slow link the CUDA wheels can outrun uv's 30-second per-request
+timeout; if the sync reports one, rerun it as
+`UV_HTTP_TIMEOUT=600 uv sync --frozen --project "$PLUGIN/plan-rag"`.
 
 `plan-rag.sh` runs this itself if `.venv` is missing, but an MCP host times out
 long before it finishes. Run it once by hand after installing.
