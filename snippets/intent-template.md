@@ -1,41 +1,49 @@
-# <Project Name> — Technical Specification
+# <Project Name> — Intent
+
+What you want, and what you already know. `/init-design` turns this into `plan/`:
+it proposes a default for every blank it can decide, and asks you only about the
+ones you alone can settle. Free-form text in place of a section is accepted.
 
 ## Goal
 
-One paragraph: what this project does, for whom, and the single most important
-outcome.
+One paragraph: what this does, for whom, and the single outcome that makes it
+worth building.
+
+## Users And Scenarios
+
+One line per user or calling system, on what a full run looks like from their
+side, start to finish.
+
+- <user or caller>: <opens ... , does ... , gets ...>
 
 ## Requirements
 
-| ID | Requirement | Priority | Acceptance signal |
-|----|-------------|----------|-------------------|
-| R-01 | <observable behavior> | MUST | <command, measurement, or observable result> |
-| R-02 | <observable behavior> | SHOULD | <...> |
+Optional. Leave it empty and `/init-design` proposes the list from the goal and
+the scenarios above. If you fill it in, write one behavior per line with how to
+check it; `/init-design` assigns the `R-NN` IDs.
 
-One row per independently verifiable behavior. Priority is MUST, SHOULD, or MAY. IDs are stable and never reused;
-plan phases reference them as `Covers: R-01, R-03`.
+- <observable behavior> — check: <command, measurement, or observation>
 
 ## Non-Goals
 
-- <explicitly out of scope — prevents scope drift during phases>
-
-## External Interfaces And Data Shapes
-
-For each boundary the system exposes or consumes: name, direction, exact shape
-(signature, schema, protocol, units), and error behavior.
+- <out of scope — what this deliberately does not do>
 
 ## Constraints
 
-- Environment: <OS, toolchain, test runner, build/run commands, hardware, versions>
-- User-local: <secrets, paths, devices only the user can provide — becomes `plan/USER.md`>
-- Workload: <expected data volume, request/sample rate, concurrency, growth>
-- Performance/resource: <limits, with numbers — these seed the architecture
-  audit's budgets>
+- Environment and toolchain: <OS, language, versions, build/run/test commands, hardware>
+- User-local: <secrets, personal paths, devices, services only you can provide — these become `plan/USER.md`>
+- Workload: <data volume, request or sample rate, concurrency, expected growth>
+- Budgets: <limit, with a number, a unit, and the condition it holds under>
 
-## Risks And Open Questions
+Leave a budget blank rather than guessing. A number written here is planned
+against as a real one.
 
-- <known unknowns; mark each as either a user decision or an investigation task>
+## Open Questions
+
+One line each, marked as your call or as something to measure.
+
+- <question> — <your call | measure>
 
 ## References
 
-- <URLs, datasheets, prior art; structure borrowed from a benchmarked repository must include its source URL>
+- <URL, datasheet, prior art; a repository whose structure you want borrowed includes its URL>

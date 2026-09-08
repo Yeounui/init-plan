@@ -37,9 +37,12 @@ accumulates forces the implementer to separate obligation from discussion on eve
 read discussion as normative and build to a rejected alternative.
 
 - **One decision log per project.** Alternatives, tradeoffs, what settled it, supersessions. Suite documents
-  cite it by ID (`see DEC-014`) and state only the resulting obligation.
+  cite it by ID (`see DEC-14`) and state only the resulting obligation. In a project with a `plan/` layout this
+  log is `plan/DECISIONS.md` and its entries are `DEC-NN`.
 - **One OPEN list per project.** Each entry names what closes it. A clause with an open question points at the
-  entry rather than narrating the uncertainty inline.
+  entry rather than narrating the uncertainty inline. In a project with a `plan/` layout this list is the
+  `## Open Items` section of `plan/README.md` and its entries are `OPEN-NN`, in the format
+  `.claude/rules/Edit_Workflow.md` fixes.
 - **No edit history in the body.** No "previously X, now Y", no settlement dates, no "confirmed with". A
   document states the present; version control and the decision log hold the rest.
 - **Rationale is one line on what breaks without the obligation.** That much is implementer-facing — it tells
@@ -119,12 +122,13 @@ Order matters because each document consumes the previous one's decisions.
    flows including the failure flows worth designing for → SDD 1.2 and 2.3. This is what makes the rest
    decidable; a decomposition drawn before anyone can walk a flow through it usually has to be redrawn.
 2. **SDS** — layering, ownership, error model, concurrency, interface conventions, and the budget table.
-3. **SDD** — decompose into components and specify each against the SDS. An existing `plan/ARCHITECTURE.md` or
-   `pseudocode-architecture` output *is* the SDD substrate: carry its component table, budgets, and tier
-   assignments across rather than re-deriving the decomposition.
+3. **SDD** — decompose into components and specify each against the SDS. An existing `plan/ARCHITECTURE.md`
+   *is* the SDD substrate: carry its component table, budgets, and tier assignments across rather than
+   re-deriving the decomposition.
 4. **SCS** — code rules before implementation begins, so no file is written against rules that change later.
-5. **API Docs** — from the SDD's component interfaces. Where `requires:`/`ensures:` docstrings exist they are
-   the source, and the generated index points at them rather than restating them.
+5. **API Docs** — from the SDD's component interfaces. Where `requires:`/`ensures:` contracts already sit in
+   the source's documentation comments, those contracts are the API documentation, and the generated index
+   points at them rather than restating them.
 
 Missing inputs stop the work instead of getting plausible defaults. A fabricated budget number propagates into
 component design and test thresholds, and retracting it later means revisiting everything downstream — an

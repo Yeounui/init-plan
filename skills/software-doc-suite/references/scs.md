@@ -107,8 +107,9 @@ inconvenient. Categories usually worth fixing:
 
 - Constructs forbidden because they defeat the SDS error model — bare excepts, ignored return codes, catching
   and discarding without logging.
-- Constructs forbidden for safety in the project's domain — dynamic allocation after init in firmware,
-  blocking calls in an interrupt or event-loop context, unbounded queues.
+- Constructs forbidden for safety in the project's domain — blocking calls in an interrupt or event-loop
+  context, unbounded queues, and on a resource-constrained target such as firmware, dynamic allocation after
+  init.
 - Constructs required at boundaries — validation at public entry points, explicit timeouts on every wait,
   bounded retries.
 - Global mutable state policy, and the permitted alternatives.
@@ -121,9 +122,9 @@ mechanical rules differ and a merged section becomes a maze of exceptions. Per l
 version, formatter/linter config path, casing conventions, import rules, error-handling idiom, documentation
 comment format, and the language-specific forbidden constructs.
 
-For generated code — protobuf stubs, HAL or CubeMX output — state whether files are edited at all, where the
-edit-safe regions are, and how regeneration is performed without losing hand-written content. Being silent
-here reliably produces lost work at the first regeneration.
+For generated code — RPC stubs, ORM models, vendor-generated initialization code — state whether files are
+edited at all, where the edit-safe regions are, and how regeneration is performed without losing hand-written
+content. Being silent here reliably produces lost work at the first regeneration.
 
 ## Test code rules
 

@@ -17,12 +17,12 @@
   "interface": {
     "displayName": "Init Plan",
     "shortDescription": "Bootstrap, design, and retrieve project plan documents.",
-    "longDescription": "Three skills plus a Plan RAG MCP server. init-plan writes a project's canonical plan/ documents from a spec; software-doc-suite routes content into SDD, API Docs, SDS, and SCS; plan-rag searches and safely updates the plan corpus with source-backed excerpts.",
+    "longDescription": "Four skills plus a Plan RAG MCP server. init-design writes a project's requirements, architecture, and decisions to plan/ from an intent document; init-phases turns that design into a test-and-harness phase plan in plan/; software-doc-suite routes content into SDD, API Docs, SDS, and SCS; plan-rag searches and safely updates the plan corpus with source-backed excerpts.",
     "developerName": "Yeounui",
     "category": "Developer Tools",
     "defaultPrompt": [
-      "Initialize the plan/ documents for this project.",
-      "Restructure these docs into an SDD and API reference.",
+      "Design the plan/ documents for this project from intent.md.",
+      "Write the test, harness, and phase plan from the design.",
       "What does the plan say about phase 2?"
     ]
   }

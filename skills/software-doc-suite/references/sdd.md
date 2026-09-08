@@ -206,14 +206,15 @@ OPEN-list entry rather than narrating the uncertainty inline.
 ## Relationship to existing architecture documents
 
 When the project has a `plan/ARCHITECTURE.md`, it is the SDD substrate: SDD clauses 3–9 cite its sections
-rather than restating them. When the project has instead produced pseudocode-architecture output, that document
-already contains most of clauses 3, 4, 6, 7, 8, and 9 plus per-component implementation tiers and budgets, and
-is the substrate in the same way — carry its component table, budgets, routing, and tier assignments across
-intact.
+rather than restating them. Its headings feed the clauses directly — `Toolchain` → 2.2, `Interfaces` → 2.1 and
+the interface field of 5, `Components` → 3, 5, 6.2, 7, 9, `Data` → 4, `Budgets` → 8.2, `Coverage` → 10.1 — and
+its `Rules` table seeds the SDS. Any other prior design document that already carries a component table, budgets,
+routing, or tier assignments is the substrate in the same way — carry those across intact, in the source's own
+terms.
 
-Either way, add only what the SDD structure requires and the source lacks — typically the scope boundary and
-non-goals (1.2), the context viewpoint (2.1), the usage scenarios (2.3), and the scenario coverage table (10) —
-and never re-derive a decomposition that already exists: a second independent decomposition of the same system
+Add only what the SDD structure requires and the source lacks — typically the scope boundary and non-goals
+(1.2), the context viewpoint (2.1), the usage scenarios (2.3), and the scenario coverage table (10) — and never
+re-derive a decomposition that already exists: a second independent decomposition of the same system
 produces two component vocabularies, and every downstream document then has to pick one.
 
 ## Common failures

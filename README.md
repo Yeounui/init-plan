@@ -1,21 +1,41 @@
 # Init Plan
 
-Claude Code and Codex plugin for keeping a project's *plan* — the canonical
-documents an implementer actually reads — correct, retrievable, and cheap to
-consult. Three skills plus a local-embedding MCP server that indexes the plan
-corpus.
+A Claude Code and Codex plugin that turns a user's short idea into an implementable work
+plan, and makes the implementing model read that plan completely while it works.
+
+1. The user writes `intent.md` — goal, users and scenarios, constraints, non-goals, open
+   questions. The shape is `snippets/intent-template.md`; free form is accepted.
+2. `/init-design` — writes actors, scenarios (`SC-NN`), requirements with acceptance criteria
+   (`R-NN`), a glossary, the architecture (project rules, components with contracts, data,
+   interfaces, budgets `B-NN`), decisions (`DEC-NN`), and user constraints into `plan/`. Blanks
+   get a proposed default; only what the user alone can answer is asked, as options, in at most
+   three rounds. What remains stays as `OPEN-NN` items in `plan/README.md`, so work resumes from
+   that one file after the context is cleared.
+3. `/init-phases` — retrieves that design through `plan-rag` and writes per-requirement and
+   per-scenario tests, the harness, and implementation phases carrying
+   `Covers:`/`Touches:`/`Verify:` into `plan/`.
+4. The Plan RAG MCP server indexes `plan/` with a local BGE-M3. The implementing model does not
+   guess at whole documents; it retrieves evidence, reads it, and keeps the plan in sync as it
+   works.
+5. `software-doc-suite` is optional. When an implementer-facing `docs/` suite (SDD, SDS, SCS,
+   API) is needed, it is built from `plan/ARCHITECTURE.md`.
+
+This makes the Claude Academy flow [`intent.md` → requirements/design → plan mode]
+(https://academy.claude.com/courses/ai-native-sdlc-playbook) repeatable inside a project.
 
 ## Skills
 
 | Skill | Use it for |
 |-------|------------|
-| `init-plan` | Bootstrap: reads a project spec (`snippets/spec-template.md` shape, or free-form) and writes the canonical `plan/` documents — overview, requirements with stable IDs, phases, architecture, constraints — then audits them for placement and conformance. Opus, no subagents. |
-| `software-doc-suite` | Decide *which* document a fact belongs in, then write it: SDD (design description), API Docs (interface contracts), SDS (design standards), SCS (code standards). Uses RFC 2119 keywords and EARS patterns as an explicit conformance level per statement. |
-| `plan-rag` | Search the plan corpus, pull source-backed excerpts with file/line provenance, inspect cross-document relations, and propose/apply safe edits to the canonical `plan/` layout. |
+| `init-design` | Reads `intent.md` and writes the scenario (`SC-NN`) and requirement (`R-NN`) specification, the architecture with contracts and budgets (`B-NN`), decisions (`DEC-NN`), and user constraints into `plan/`. The main model frames the whole; one Opus subagent per component designs its detail, one Haiku agent per reference document reads it, and the main model merges the returns, reconciles them, and asks the user only the choices that need them. |
+| `init-phases` | Retrieves that design through `plan-rag` and writes per-requirement and per-scenario tests, the harness, and per-phase `Covers:`/`Touches:`/`Verify:` into `plan/`. |
+| `plan-rag` | Retrieves only file- and line-backed context from the indexed `plan/`, and syncs the plan and the index safely after implementation or document changes. |
+| `software-doc-suite` | Builds the implementer-facing SDD, SDS, SCS, and API document suite from `plan/ARCHITECTURE.md`. |
 
-The usual order is `init-plan` (write the plan) → `plan-rag` (every later
-session reads the plan through it instead of re-reading files) →
-`software-doc-suite` (when the docs themselves need restructuring).
+The order is `intent.md` → `/init-design` → `/init-phases` → implementation (`plan-rag`), with
+`software-doc-suite` added when needed. The model does not invoke `init-design` or
+`init-phases` on its own; the user runs them as slash commands. To continue after the context
+is reset, check the `Next:` line and `## Open Items` in `plan/README.md`.
 
 ## Plan RAG MCP server
 
@@ -30,9 +50,10 @@ will not start until [Setup](#setup) is done.
 
 ## Prerequisites
 
-The three skills are plain Markdown and work as soon as the plugin is
-installed. Everything below is for Plan RAG — without it you lose retrieval and
-the audit steps of `init-plan`, but nothing else.
+The four skills are plain Markdown and work as soon as the plugin is
+installed. Everything below is for Plan RAG — without it you lose retrieval,
+`init-phases` (which reads the design through Plan RAG), and the audit steps
+of `init-design`, but nothing else.
 
 | Need | Why | Check |
 |------|-----|-------|
@@ -86,10 +107,38 @@ Restart the host after installing so it discovers the bundled skills.
 
 ## Setup
 
-Steps 1–2 are once per machine, steps 3–4 once per project.
+After the embedding model is available locally, one command configures each
+consumer project. It installs the locked runtime (without test dependencies),
+sets the model path in `.env`, ignores generated state, copies missing rules,
+and verifies Plan RAG:
+
+```bash
+bash "$PLUGIN/plan-rag/scripts/setup-plan-rag.sh" \
+  --project-root "$PWD" \
+  --model-path /path/to/local/bge-m3
+```
+
+The script preserves existing `.env` settings except for the explicitly passed
+model path, and never overwrites an existing rule file.
+
+Only these prerequisites remain manual:
+
+- Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) once.
+- Build the runtime once so its `hf` downloader is available, then download
+  BGE-M3 and provide its resulting directory to the setup command:
+
+  ```bash
+  uv sync --frozen --no-dev --project "$PLUGIN/plan-rag"
+  "$PLUGIN/plan-rag/.venv/bin/hf" download BAAI/bge-m3 --local-dir ~/models/bge-m3
+  ```
 
 `PLUGIN` below is wherever the plugin landed — the path you passed to `--from`,
 or `~/.claude/plugins/…/init-plan` after a GitHub install.
+
+### Manual setup details
+
+Steps 1–2 are once per machine, steps 3–4 once per project. Use these only
+when the setup script cannot run.
 
 ### 1. Build the environment
 
@@ -148,7 +197,7 @@ Add `.plan-rag/` to the project's `.gitignore`; it is a rebuildable index.
 
 ### 4. Rules
 
-`init-plan` and `plan-rag` write to placements defined in
+`init-design`, `init-phases`, and `plan-rag` write to placements defined in
 `.claude/rules/Edit_Workflow.md`. Copy the two rule files into the project
 once:
 
@@ -187,10 +236,10 @@ Writes are supported only for the default canonical `plan/` layout. A custom
 ## Repository layout
 
 ```
-skills/     init-plan, software-doc-suite, plan-rag
+skills/     init-design, init-phases, software-doc-suite, plan-rag
 rules/      Edit_Workflow.md (canonical placements), Doc_Authoring.md
-snippets/   spec-template.md — the preferred bootstrap spec shape
-plan-rag/   the MCP server: Python package, uv.lock, tests, wrapper script
+snippets/   intent-template.md — what the user writes before /init-design
+plan-rag/   the MCP server: Python package, uv.lock, wrapper and setup scripts
 .mcp.json   registers plan-rag for Claude Code
 ```
 

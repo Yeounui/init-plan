@@ -1,217 +1,249 @@
 ---
-description: Initialize plan/ documents for a new project. Opus reads the bootstrap specs and writes the canonical plan/ documents directly, with no subagents.
+description: Turn a bootstrap intent document into the plan/ design — goal, actors, scenarios, requirements, architecture, decisions, and user constraints — asking the user only about choices that change what they get. Runs before /init-phases.
 disable-model-invocation: true
 model: opus
 effort: xhigh
-allowed-tools: Read, Glob, Grep, Write, Edit, AskUserQuestion, mcp__plan-rag__audit_plan, mcp__plan-rag__sync_plan
+allowed-tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion, Agent, mcp__plan-rag__get_plan_status, mcp__plan-rag__search_plan, mcp__plan-rag__get_plan_section, mcp__plan-rag__get_related_plan_chunks, mcp__plan-rag__audit_plan, mcp__plan-rag__sync_plan
 ---
 
-Initialize the `plan/` directory for this project. Read the bootstrap specs
-directly, decide directly, write directly, and verify directly.
+Write `plan/OVERVIEW.md`, `plan/ARCHITECTURE.md`, `plan/DECISIONS.md`, `plan/USER.md`, and
+`plan/README.md` directly with Write/Edit. `plan/PHASES.md` and `plan/REVIEW.md` belong to `/init-phases`.
+`references/overview.md` fixes what `plan/OVERVIEW.md` holds and how each row is written;
+`references/architecture.md` does the same for `plan/ARCHITECTURE.md`. Load each before writing its document.
+
+The design is finished when `/init-phases` can write every phase's `Touches:` and `Verify:` without
+deciding anything two phases share. Everything inside one component that no other component reads is
+implementation and belongs to the phase that builds it.
+
+## Step 0 — Resume
+
+Read `plan/README.md` directly when it exists.
+
+- Its `Next:` line names `init-design` and a step — continue from that step, keeping the existing
+  `## Open Items` list and its IDs; a `parts pending:` list names the parts Step 4 launches or Step 5
+  merges.
+- `plan/` documents exist and `Next:` names another skill or is absent — ask the user to choose
+  between extending the existing design and restarting it, then follow the matching path below.
+- No `plan/` directory — start at Step 1.
+
+Extend: call `get_plan_status()`, and `sync_plan()` when its `freshness` key reports stale, missing, or
+unindexed files. Retrieve the existing design through `get_plan_section` per document (outline first,
+then the headings that matter) and `search_plan` for an identifier; read a file directly only in the
+edit that changes it. A slot the retrieved text fills is filled, so Steps 2–7 run only on the remaining
+slots, the slots new input contradicts, and the recorded `OPEN-NN` items. Restart: rewrite the five
+documents from Step 1, reusing the `R-NN`, `SC-NN`, `B-NN`, `DEC-NN`, and `OPEN-NN` numbers of facts
+that survive.
 
 ## Step 1 — Bootstrap Context
 
-Read these directly:
-- The user's project description provided when invoking this skill
-- Root bootstrap documents such as `plan.md`, `structure.md`, architecture
-  notes, migration notes, or other user-provided initial specs — the preferred
-  spec shape is `snippets/spec-template.md`, but free-form specs are accepted.
-  A `pseudocode-architecture` output document — a root `structure.md`
-  populated to that skill's template §1–10, including its §9 performance/
-  redesign-risk audit table and §10 implementation cost estimate — is also
-  an accepted bootstrap document type.
-- Canonical document table from `.claude/rules/Edit_Workflow.md`. If that
-  file is absent, copy `rules/Edit_Workflow.md` and `rules/Doc_Authoring.md`
-  from this plugin's directory into `.claude/rules/` first.
+Read directly:
 
-If any `plan/` documents already exist, list them and ask the user whether to
-proceed before continuing.
-If no project description was provided, ask the user for one before proceeding.
+- the project description given when this skill is invoked
+- root bootstrap documents: `intent.md` (shape: `snippets/intent-template.md`), `plan.md`, and
+  `structure.md`. Free-form documents are accepted. Every other document is a reference document for
+  Step 2.
+- the canonical document table in `.claude/rules/Edit_Workflow.md`. When that file is absent, copy
+  `rules/Edit_Workflow.md` and `rules/Doc_Authoring.md` from this plugin into `.claude/rules/` first.
+
+With neither a bootstrap document nor a project description, ask for one and stop until it arrives.
 
 ## Step 2 — Extract Facts
 
-From the bootstrap context, pull the facts each canonical plan document needs:
-- Project goal, scope, and constraints
-- Defined phases or procedures
-- User-run tasks, secrets, hardware, or empirically determined values
-- Any prior decisions or architecture notes
-- Toolchain: languages, test runner, build/run commands, and checks the project
-  repeats after edits
-- Current status of any existing work
+Pull every fact the design slots need, preserving exact names, paths, commands, constants, units, and
+versions; the source's words become the Glossary's terms. Assign `SC-NN` to each end-to-end flow the
+source describes and `R-NN` to each independently verifiable requirement it leaves unnumbered; reuse the
+source's own IDs where it has them.
 
-Preserve exact names, paths, commands, constants, and status terms. Record
-explicit contradictions or TODOs in the source as open questions; do not invent
-a resolution. If a needed fact is absent, mark it as a missing fact / next
-action — do not fabricate a substitute. For large or ambiguous sources, reread
-the specific section directly rather than guessing.
+A budget, risk, audit, or cost table of any origin is transcribed into `plan/ARCHITECTURE.md` intact —
+every row, class, number, and check. A row missing its number, measurement command, or evidence check is
+a blank for Step 6, not a row to fill in. A contradiction or `TODO` in the source is a blank too; do not
+settle it by choosing one side.
 
-If the spec lacks requirement IDs, assign stable IDs (`R-01`, `R-02`, …) to
-each independently verifiable requirement during extraction and use those IDs
-consistently across all plan documents. Record non-goals as explicit scope
-boundaries for `plan/OVERVIEW.md`.
+A reference document is any document beyond the root bootstrap documents, the plan documents, and the
+rules: an architecture or migration note, a `docs/` suite file, an external or vendor spec, a PDF, a
+changelog, a protocol description, existing source the design must fit.
 
-## Step 3 — Planning Gate
+- One `Agent` call at `model: haiku` (`subagent_type: general-purpose`) per reference document, all
+  launched in one message; the main model reads none of them itself.
+- Each prompt carries the path; the questions the design slots need answered from it — identifiers,
+  signatures, units and ranges, versions, commands, constraints with who imposes them, budget numbers;
+  and the return shape — a fact list, names verbatim, each fact with `path:line` or page, contradictions
+  listed side by side, `not present` for a question the document does not answer, no inference.
+- Returned facts join this step's facts, tagged by document, and are the only form in which a reference
+  document reaches a Step 4 designer: a brief carries facts, never a path to read.
 
-Decide:
-- Which canonical `plan/` documents to create or update (see
-  `.claude/rules/Edit_Workflow.md` for placement)
-- Which extracted facts belong in each document, kept in one canonical location
-- Which facts are missing, contradictory, or too weak to record as requirements
-- Which unresolved items become next actions or open questions
+## Step 3 — Frame the Design
 
-Create only the canonical documents supported by the facts. Do not invent
-requirements, architecture, phases, decisions, verification evidence, or status.
+Each slot is one heading of a plan document; the reference for that document fixes its content and form.
 
-## Step 4 — Design Tests and Harness
+| Slot | Heading | Holds |
+|------|---------|-------|
+| S1 | `OVERVIEW.md` `## Goal`, `## Non-Goals` | the goal paragraph with its `Outcome:`; explicit scope boundaries |
+| S2 | `## Actors` | every person, role, or external system crossing the boundary: kind, concern, direction |
+| S3 | `## Scenarios` | `### SC-NN` per end-to-end flow: actor, precondition, numbered steps, failure flows, guarantee |
+| S4 | `## Requirements` | one `R-NN` row per obligation: kind, level, one verifiable sentence, acceptance, source (`SC-NN.step`, `SC-NN failure`, `intent <section>`, or `DEC-NN`) |
+| S5 | `## Glossary` | every term, identifier, and unit with one meaning, spelled as the source spells it |
+| A1 | `ARCHITECTURE.md` `## Toolchain` | language, build/run/test/lint commands, imposed constraints with their source |
+| A2 | `## Rules` | project-wide rules with Level and check: layering, error model, concurrency, interfaces, config |
+| A3 | `## Components` | `### <Name>` per component: Responsibility, Path, Serves, Operations with `requires:`/`ensures:`/errors, Owns, Failure, Depends, Test seam |
+| A4 | `## Data` | boundary-crossing or persisted entities: owner, shape, persistence, compatibility |
+| A5 | `## Interfaces` | every boundary crossing: direction, shape, errors, owner |
+| A6 | `## Budgets` | `B-NN` per number: unit, condition, measurement command, bound `R-NN`, owner share |
+| A7 | `## Coverage` | every `SC-NN` step and failure flow → the components serving it |
 
-Before any implementation phase, design the test cases and the project
-harness from extracted facts only. Every item traces to a requirement's
-acceptance signal, a phase `Verify:` command, a user-run task, or a toolchain
-fact; do not add an item without one.
+Fill in the order S1 → S2 → S3 → S4 → A1 → A2 → A5 → A3 frame → A7 draft; each from the source, else
+from a proposed default recorded as a Step 6 decision, else a blank. The A3 frame is one `### <Name>`
+per component carrying Responsibility, Path, Serves, and an `Intent:` line — the decomposition alone.
+`Intent:` holds the part's role at every `SC-NN` step it serves, what it owns, the A5 rows it owns, the
+neighbours it calls and those that call it, and the `R-NN` quality numbers it holds a share of;
+expected, not pinned, and replaced in Step 5. The A7 draft is each `SC-NN` step and failure flow
+against the components the frame assigns to it.
 
-- Test cases: one per requirement ID, derived from its acceptance signal —
-  test file and name, kind (unit, integration, hardware-gated), and the phase
-  whose `Verify:` runs it. A requirement without a runnable acceptance signal
-  is a Step 5 question, not a guessed test.
-- Harness items, each with a one-line purpose and the fact that needs it:
-  - `scripts/`: test runner, build/run/flash wrappers, and any load generator
-    or fixture a `Verify:` command needs
-  - `.claude/skills/<name>/SKILL.md`: a repeated multi-step procedure with
-    project-specific commands (run, flash, deploy, data setup)
-  - `.claude/rules/<name>.md`: conventions for one language or layer,
-    `paths:`-gated to its files
-  - `.claude/settings.json` hooks: a check that runs after every edit or
-    before every stop (format, lint, a fast test subset)
-  - `.claude/agents/<name>.md`: only for a repeated task that needs isolated
-    context; default none
+Write the frame before Step 4 — `plan/OVERVIEW.md` S1–S4; `plan/ARCHITECTURE.md` A1, A2, A5, the A3
+frame, the A7 draft — and set `plan/README.md` `Next:` to
+`Next: init-design Step 4 — parts pending: <every component>`. A4 Data, A6 Budgets, the rest of A3, and
+S5 Glossary are written in Step 5 from the designers' returns.
 
-## Step 5 — Resolve Gaps Before Writing
+The frame and every Step 4 part stop at the line `references/architecture.md` § Depth cap draws:
+operation contracts, shared data, states another component observes, and test seams are design; bodies,
+private helpers, algorithms, and the file split inside a component path belong to the phase that builds
+the component.
 
-Split Step 3's missing or contradictory items — and Step 4's requirements
-without a runnable acceptance signal or harness items without a named
-toolchain — into two groups: those that change phase boundaries, module
-interfaces, data shapes, bottleneck budgets, or the test runner, and those
-that are safe to defer as open questions. Ask the user
-about the first group (AskUserQuestion, batched into one round) before
-writing any document. Record each answer as a fact; when an answer settles a
-choice, it also becomes a `plan/DECISIONS.md` entry. Items the user defers
-stay as open questions with a named next action.
+## Step 4 — Delegate the Parts
 
-## Step 6 — Write Documents
+One part per component in the frame, one `Agent` call per part at `model: opus`
+(`subagent_type: general-purpose`), all launched in one message; a resumed run launches only the parts
+`Next:` lists as pending. A designer reads `references/architecture.md` from disk at the path the brief
+gives, and nothing else; the rest is in its brief. With one component in the frame there is no boundary
+to reconcile: the main model writes the part itself in the return shape below and goes to Step 5.
 
-Write the planned `plan/` documents directly with Write/Edit.
+| Field | Content |
+|-------|---------|
+| Part | the component name and Path from the frame |
+| Serves | its `R-NN` rows verbatim — kind, level, sentence, acceptance — and the `SC-NN` steps and failure flows it serves, verbatim |
+| Intent | the frame's `Intent:` line for this part |
+| Rules | the A2 table |
+| Toolchain | A1 |
+| Boundary | the A5 rows it owns; each neighbour's Responsibility line and the operation the intent expects across that boundary |
+| Data | entities the intent expects it to own or read |
+| Budgets | the quality `R-NN` rows whose number it shares |
+| Glossary | S5 terms so far, source-verbatim |
+| User constraints | `plan/USER.md` facts that touch it: hardware, secrets, paths |
+| Reference facts | the Step 2 fan-out facts tagged for this part |
 
-- Keep each fact in its canonical document; link (`[[name]]`) instead of
-  duplicating long specs, tables, or architecture detail across documents.
-- Before editing an existing document, read it first and preserve unrelated
-  headings, links, tables, status shapes, and wording.
-- `plan/README.md` is the bootstrap/fallback entry point only: write the current
-  blocker / next action, any pending user decisions, and the document map — do
-  not put a status table there. For a freshly generated plan, the next action is
-  its own review (e.g. "plan generated; review before implementation").
-- Record per-document or phase progress status (`generated` and not-yet-reviewed,
-  later `verified`) in its canonical document — progress/verification belongs in
-  `plan/REVIEW.md`, not `plan/README.md`. Use only the allowed status terms from
-  `.claude/rules/Edit_Workflow.md`; `verified` requires explicit evidence.
-- Every phase entry in `plan/PHASES.md` must declare:
-  - `Covers:` — the requirement IDs the phase implements
-  - `Touches:` — the files and symbols it will create or modify
-  - `Verify:` — the concrete command(s) whose pass defines the phase as verified
-- The first phase is the test-and-harness phase. `Covers:` infrastructure;
-  `Touches:` every test file and harness item from Step 4 with its purpose;
-  `Verify:` the test runner's collect or dry-run command passes with one test
-  per requirement ID, and every script and hook command exits 0 in help or
-  dry-run mode. Test skeletons stay skipped or expected-to-fail until the
-  phase that implements them.
-- The Step 4 test cases go in `plan/REVIEW.md` as a table — requirement ID,
-  test, kind, phase, status — with every test starting as `stub exists`.
-- When the project spans multiple layers, the first implementation phase is a
-  minimal end-to-end vertical slice (walking skeleton).
-- Every boundary shared across phases — a file or symbol in two phases' `Touches:`, or data
-  produced by one phase and consumed by another — has its interface shape (signature, schema,
-  units) pinned in `plan/ARCHITECTURE.md` before the consuming phase is written.
+The return carries these headings, spelled exactly, and stops at the Depth cap; internals stay out.
 
-## With an Architecture Audit Table
+| Heading | Content |
+|---------|---------|
+| `## Section` | the complete `### <Name>` section in `references/architecture.md` form: Responsibility, Path, Serves, Operations with `requires:`/`ensures:`/errors, Owns with its state table when a state is observed or persisted, Failure, Depends `→`/`←`, Test seam with its fake |
+| `## Data` | one A4 row per entity it owns |
+| `## Budget share` | its share of each `R-NN` number, with the measurement command it proposes |
+| `## Coverage` | its rows for the `SC-NN` steps it serves, confirming or amending the draft |
+| `## User choices` | questions only the user can settle, per the Step 6 table: the question, 2–4 options with the recommended one first, one line per option on what changes, what it blocks |
+| `## Main-model choices` | a boundary shape the neighbour must agree to, an entity two parts both want to own, a rule that does not fit, an `R-NN` that belongs to another part; each with a recommendation |
+| `## Assumptions` | engineer-decidable defaults it took, each with `Revisit when:` |
+| `## Terms` | each new boundary term with the source word it comes from; none is invented |
 
-This section applies when a bootstrap document carries a
-`pseudocode-architecture` §9 audit table, and extends the Extract, Resolve
-Gaps, Write, and Self-Audit steps. Table A rows are performance-bottleneck
-classes carrying a numeric budget and a measurement command; Table B rows are
-redesign-risk classes carrying an evidence check.
+## Step 5 — Reconcile
 
-- **Extract:** transcribe the component table, the audit table, and the §10
-  model/effort/token-budget recommendations into `plan/ARCHITECTURE.md` as
-  facts, preserving every class, budget, and evidence check. An applicable
-  class lacking a decision plus a budget or evidence check is a gap for the
-  Resolve Gaps step; do not fill it in. Record decisions where real
-  alternatives existed, and any structure borrowed from a benchmarked
-  repository, in `plan/DECISIONS.md` citing the source.
-- **Resolve Gaps:** when the user cannot supply a number an applicable Table A
-  class needs, do not leave the row open and do not guess silently: derive a
-  provisional budget from a stated assumption, and record the assumption and
-  its revisit trigger (the measurement that confirms or breaks it) as a
-  `plan/DECISIONS.md` entry. The audit row then carries the provisional
-  budget marked as assumption-derived.
-- **Write:** when a phase touches a path carrying a Table A budget, its
-  `Verify:` includes that budget's measurement command alongside the
-  functional checks. Table B evidence checks that name a phase `Verify:`
-  (migration, kill-and-restart, overload, clean shutdown) are assigned to the
-  phase that implements the mechanism. The walking skeleton's `Verify:` also
-  takes the first measurement of the one or two riskiest Table A budgets —
-  the least certain estimates. When a phase's scope corresponds to a
-  component `pseudocode-architecture` already classified, carry its
-  recommended implementation model/effort and predicted token budget into
-  that phase's entry. Load generators and benchmark scripts a Table A
-  measurement command needs are harness items of the test-and-harness phase.
-- **Self-Audit:** no class is dropped, and no budget or evidence check is
-  altered without a recorded reason. Every flagged gap became a Resolve Gaps
-  question. Every Table A measurement command and every Table B check naming
-  a phase `Verify:` appears in at least one phase's `Verify:`, and every
-  measurement command is runnable when its phase runs (its load or data
-  source exists or is built by a phase ordered no later than its first use).
-  If `plan/ARCHITECTURE.md` includes function-level design and the
-  `pseudocode-architecture` skill is installed, run the Structure checks in
-  its `references/design-checks.md` against it.
+The main model merges the returns into one design.
 
-## Step 7 — Self-Audit
+- Boundaries: the callee's Operations block is the contract, and the caller's `Depends: →` cites it.
+  Where two returns disagree on a shape, the main model settles it, records a `DEC-NN` when both were
+  competent, and edits the returned sections directly; a designer is re-invoked only when the settlement
+  changes that part's Owns, state table, or Failure.
+- Enforce: names spelled identically everywhere; every `→` with its mirrored `←`; no cycle; one owner
+  per entity; a unit or a range on every Data field; budget shares summing to the `R-NN` number or one
+  owner holding it whole; every `R-NN` in exactly the `Serves:` the frame assigned unless a main-model
+  choice moved it; Coverage rows matching the merged sections; every designer term a source word or an
+  `OPEN-NN [user]` naming question.
+- Main-model choices are settled here; user choices from every part pool into Step 6; assumptions become
+  `DEC-NN` with `Default:` and `Revisit when:`, deduped across parts.
+- Write as the merge runs: each reconciled section replaces its frame section, `Intent:` line included,
+  in `plan/ARCHITECTURE.md` before the next is merged, then A4 Data, A6 Budgets, A7 Coverage, a
+  `### Sequence — SC-NN step N` for each step three or more components serve, and S5 Glossary from the
+  merged returns. `plan/README.md` `Next:` reads `Next: init-design Step 5 — parts pending: <names>`
+  while parts remain, and pooled user choices are appended to `## Open Items` before Step 6 runs.
 
-Run `mcp__plan-rag__audit_plan` first. It reports unsupported status terms and
-broken `[text](target)` links across the canonical documents. Ignore
-`missing_canonical_document` findings for documents Step 3 deliberately did not
-create, and link findings that point at intentionally-future documents. It does
-not check `[[name]]` links; check those directly.
+## Step 6 — Classify Every Blank
 
-Then audit the created or edited files directly for what the tool cannot judge:
-1. Each fact is in the correct canonical document.
-2. `verified` appears only with explicit verification evidence.
-3. Missing facts are represented as next actions or open questions, not invented
-   content.
-4. The plan does not contradict the source evidence.
-5. Every requirement ID appears in at least one phase's `Covers:`, and every
-   phase covers at least one requirement or is explicitly infrastructure.
-6. Step 6's phase constraints hold: no two phases list the same file in
-   `Touches:` unless the plan orders them explicitly or a shared-interface phase
-   precedes both; every cross-phase boundary has its interface shape recorded
-   in `plan/ARCHITECTURE.md`.
-7. Every requirement ID has a test-case row in `plan/REVIEW.md`, the
-   test-and-harness phase's `Touches:` lists every test file and harness item
-   from Step 4, and every harness item names the fact that needs it.
-8. Every later phase's `Verify:` runs only on what the test-and-harness phase
-   creates or the toolchain already provides.
+| Kind | What it is | What happens |
+|------|------------|--------------|
+| user-only | secrets, paths, hardware, which of two scopes matters, acceptance thresholds tied to the user's need, choices whose alternatives change what the user gets | ask in Step 7, with options and a recommended default |
+| engineer-decidable | library, module layout, internal data structures, naming, any choice where every competent option works | decide now; record `DEC-NN` with `Default:` and `Revisit when:` |
+| empirical | timeouts, latency, capacity, tuning values | set a provisional value from a stated assumption; record `DEC-NN`; add `OPEN-NN [measure]` with the command that closes it |
 
-Also run the `Edit_Workflow.md` verification checks: `rg` for stale paths, and
-confirm `plan/README.md`'s document map matches the files actually created. Fix
-issues directly when the correct fix is evidence-supported; otherwise report
-them.
+Only user-only blanks reach the user. A blank the user defers, or answers with no preference, is
+engineer-decidable for the rest of this run. Every `## User choices` item pooled from Step 4 is
+classified here as well; one the table makes engineer-decidable is decided, not asked.
 
-## Step 8 — Build the Plan RAG Index
+## Step 7 — Ask, Then Stop
 
-The `plan-rag` daemon watcher indexes new and changed `plan/*.md` automatically
-after a two-second quiet period. Call `mcp__plan-rag__sync_plan()` once
-here as an explicit checkpoint for the initial direct write, and confirm the
-result reports `complete=true` with an empty `errors` list.
+Ask through `AskUserQuestion`: at most 4 questions per round, 2–4 options each, the recommended option
+first, one line per option naming what changes. Order by what they block: A1 → A3 operations and A5 →
+A4 → S4 `MUST` rows → everything else.
 
-## Step 9 — Report Output
+Ask nothing further once the first of these holds:
 
-Report which documents were created, which were skipped, the self-audit result,
-the index build result, and any contradictions or follow-up questions.
+1. Every remaining blank is engineer-decidable or empirical.
+2. Three rounds are done. Every remaining user-only blank stays `OPEN-NN [user]` with its recommended
+   default applied provisionally, so every slot is filled either way.
+3. The next question would make the user design — its answer changes only one component's internals,
+   names a library or a data structure, or asks the user to choose between options they can only
+   evaluate by reading code. Replace it with a proposal: decide it, record `DEC-NN`, and continue.
+
+Before each round, write that round's questions into `plan/README.md` as `## Open Items` lines carrying
+their options, provisional value, and what they block, and set `Next:` to
+`Next: init-design Step 7, round N — answer OPEN-…`.
+After the round, each answer becomes a fact in its canonical document plus a `DEC-NN` entry when it
+settles a choice, and its open-item line is removed. Those lines and `Next:` are the whole resume state
+for a round interrupted by compaction.
+
+## Step 8 — Write the Documents
+
+| Destination | Content |
+|-------------|---------|
+| `plan/OVERVIEW.md` | S1–S5 under the six headings, per `references/overview.md` |
+| `plan/ARCHITECTURE.md` | A1–A7 under the seven headings, per `references/architecture.md` |
+| `plan/DECISIONS.md` | one `### DEC-NN <title>` per decision: `Context:`, `Decision:` (`Default:` when chosen without the user), `Alternatives:`, `Consequences:` (one line on what breaks without it), `Revisit when:` |
+| `plan/USER.md` | commands the user runs, secrets, personal paths, hardware, and local constraints |
+| `plan/README.md` | `Next:`, `## Open Items`, and the document map |
+
+- Keep each fact in one document and link with `[text](FILE.md#anchor)` instead of repeating it. Give
+  each component its own heading so a phase can link to it, and mark the clause holding a blank
+  `(OPEN-NN)` inline.
+- `plan/README.md` carries no status table and no per-phase progress. Its `## Open Items` follows the
+  format in `.claude/rules/Edit_Workflow.md`, and its `Next:` reads `Next: /init-phases` once Step 7 stops.
+- The `plan/ARCHITECTURE.md` component sections, `## Data`, `## Budgets`, and `## Coverage` are on disk
+  from Step 5; this step writes the rest. Read an existing document before editing it and preserve its
+  unrelated headings, tables, and wording.
+
+## Step 9 — Self-Audit
+
+Run `audit_plan`, ignoring its `missing_canonical_document` findings for `plan/PHASES.md` and
+`plan/REVIEW.md` and its link findings that point at those two files. Run the `Checks` list of
+`references/overview.md` against `plan/OVERVIEW.md` and of `references/architecture.md` against
+`plan/ARCHITECTURE.md`. Then check across documents:
+
+1. Every slot holds a value or an `(OPEN-NN)` marker, and `rg 'OPEN-' plan/` finds every marker with a
+   `plan/README.md` line naming its tag, provisional value, and what it blocks.
+2. Every `R-NN` is in some component's `Serves:`; every `B-NN` bounds an `R-NN` that exists; every
+   `SC-NN` step and failure flow has a `## Coverage` row.
+3. Every transcribed table row kept its number, command, and check, or carries an `(OPEN-NN)` marker.
+4. Every `DEC-NN` a document cites exists, and every Step 6 default has one.
+5. Every fact sits where the canonical table assigns it, appears in one document only, and the document
+   map in `plan/README.md` matches the files that exist.
+6. Every `Depends: →` edge has its `←` mirror, no `Intent:` line remains, and every Step 4
+   `## Main-model choices` item is settled by a `DEC-NN` or an edit, with none left in the text.
+
+Fix what the evidence settles; report the rest.
+
+## Step 10 — Index Checkpoint
+
+Call `sync_plan()` once and confirm the result reports `complete=true` with an empty `errors` list.
+
+## Step 11 — Report
+
+Report the documents written, how many slots came from the source versus a proposed default, the parts
+delegated and any re-invoked, the main-model choices settled with their `DEC-NN`, the `DEC-NN` entries
+added, the open items by tag, and any contradiction left unresolved. End with `Next: /init-phases`.
