@@ -33,7 +33,7 @@ if [[ -f "${CONSUMER_ROOT}/.env" ]]; then
 fi
 
 if [[ -z "${CONDA_SH:-}" ]]; then
-  printf 'plan-rag: CONDA_SH not set (expected in %s/.env)\n' "${CONSUMER_ROOT}" >&2
+  printf 'plan-rag: CONDA_SH not set (expected in %s/.env, alongside PLAN_RAG_EMBEDDING_BACKEND and PLAN_RAG_EMBEDDING_MODEL_PATH)\n' "${CONSUMER_ROOT}" >&2
   exit 1
 fi
 

@@ -89,6 +89,12 @@ Plan RAG is the only part with prerequisites. The skills work without it, but
    [`.env.example`](.env.example) into that project's `.env` and fill in
    `CONDA_SH` and `PLAN_RAG_EMBEDDING_MODEL_PATH`.
 
+   The plugin checks this on session start (`scripts/check-env.sh`, wired
+   through `hooks/hooks.json`) and prints the exact lines to add when either
+   value is missing or empty. It never writes `.env` itself — ask Claude to
+   add them once you have the two paths, then restart so the MCP server picks
+   them up. Configured projects see nothing.
+
 4. **Rules.** `init-plan` and `plan-rag` write to placements defined in
    `.claude/rules/Edit_Workflow.md`. Copy the two rule files into the
    consuming project once:
@@ -104,6 +110,8 @@ skills/     init-plan, software-doc-suite, plan-rag
 rules/      Edit_Workflow.md (canonical placements), Doc_Authoring.md
 snippets/   spec-template.md — the preferred bootstrap spec shape
 plan-rag/   the MCP server: Python package, tests, wrapper scripts
+hooks/      SessionStart check for the .env values plan-rag needs
+scripts/    check-env.sh, run by that hook
 .mcp.json   registers plan-rag for Claude Code
 ```
 
