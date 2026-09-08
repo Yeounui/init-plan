@@ -209,21 +209,25 @@ neighbors per heading. Tune the cap with
 
 ## Dependencies
 
-Everything is pinned in `uv.lock` and installed into `.venv` at this repo's
-root:
+Everything except torch is pinned in `uv.lock` and installed into `.venv` at
+this repo's root; torch is installed separately with `--torch-backend=auto`,
+which resolves against the local driver instead of a version pinned in the
+lock:
 
 ```bash
-uv sync --frozen          # runtime
-uv sync --frozen --group dev   # plus pytest
+uv sync --frozen --inexact --no-install-package torch          # runtime
+UV_TORCH_BACKEND=auto uv pip install --python .venv/bin/python torch
+uv sync --frozen --inexact --group dev --no-install-package torch   # plus pytest
 ```
 
-`scripts/plan-rag.sh` does the first sync itself if `.venv` is missing, but an
-MCP host will usually time out waiting for it — run the command once after
-installing. When the daemon cannot start at all, the proxy still serves MCP
-with the real tool schemas and every call returns the reason, read out of
-`.plan-rag/daemon.log`: the missing package plus the `uv sync` command, or the
-configuration error verbatim. Chroma is used with caller-supplied embeddings only; its default
-ONNX embedding stack is never loaded.
+`scripts/plan-rag.sh` does the first sync and torch install itself if `.venv`
+is missing, but an MCP host will usually time out waiting for it — run the
+commands once after installing. When the daemon cannot start at all, the
+proxy still serves MCP with the real tool schemas and every call returns the
+reason, read out of `.plan-rag/daemon.log`: the missing package plus the `uv
+sync` command, or the configuration error verbatim. Chroma is used with
+caller-supplied embeddings only; its default ONNX embedding stack is never
+loaded.
 
 ## BGE-M3 Model Setup
 

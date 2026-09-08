@@ -48,7 +48,8 @@ append_if_missing() {
 }
 
 printf 'plan-rag setup: installing locked runtime dependencies\n'
-uv sync --frozen --no-dev --project "$SCRIPT_REPO"
+uv sync --frozen --inexact --no-dev --no-install-package torch --project "$SCRIPT_REPO"
+UV_TORCH_BACKEND=auto uv pip install --directory "$SCRIPT_REPO" --python "$SCRIPT_REPO/.venv/bin/python" torch
 
 umask 077
 touch "$ENV_FILE"

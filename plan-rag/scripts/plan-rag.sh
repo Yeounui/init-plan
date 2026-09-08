@@ -35,16 +35,18 @@ fi
 
 # Plan RAG runs from its own uv-managed .venv inside this repo — no ambient
 # interpreter, no shared environment to keep in sync. Build it on first use;
-# uv resolves nothing at runtime because uv.lock is committed. Progress goes to
+# everything except torch is pinned by the committed uv.lock. torch is
+# resolved at install time against the local driver instead. Progress goes to
 # stderr: stdout carries MCP JSON-RPC only.
 if [[ ! -x "${VENV_PYTHON}" ]]; then
   if ! command -v uv >/dev/null 2>&1; then
     printf 'plan-rag: uv is required and was not found on PATH.\n' >&2
-    printf 'plan-rag: install it (https://docs.astral.sh/uv/) then run: uv sync --frozen --project %s\n' "${SCRIPT_REPO}" >&2
+    printf 'plan-rag: install it (https://docs.astral.sh/uv/) then run: uv sync --frozen --inexact --no-install-package torch --project %s && UV_TORCH_BACKEND=auto uv pip install --directory %s --python %s torch\n' "${SCRIPT_REPO}" "${SCRIPT_REPO}" "${VENV_PYTHON}" >&2
     exit 1
   fi
   printf 'plan-rag: creating %s/.venv from uv.lock (first run, this takes a while)\n' "${SCRIPT_REPO}" >&2
-  uv sync --frozen --project "${SCRIPT_REPO}" >&2
+  uv sync --frozen --inexact --no-install-package torch --project "${SCRIPT_REPO}" >&2
+  UV_TORCH_BACKEND=auto uv pip install --directory "${SCRIPT_REPO}" --python "${VENV_PYTHON}" torch >&2
 fi
 
 # Drop any inherited PYTHONPATH/PYTHONHOME: plan_rag lives in the venv, and an

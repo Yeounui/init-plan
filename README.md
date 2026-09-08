@@ -64,8 +64,8 @@ of `init-design`, but nothing else.
 |------|-----|-------|
 | [`uv`](https://docs.astral.sh/uv/getting-started/installation/) | Builds Plan RAG's `.venv` from the committed `uv.lock`. It also fetches its own CPython, so no system or conda Python is required. | `uv --version` |
 | Linux or macOS, bash | `plan-rag.sh` is a bash wrapper | `bash --version` |
-| ~8 GB disk | `.venv` (PyTorch dominates) plus the BGE-M3 weights and the index | — |
-| NVIDIA GPU *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own. Linux pins the CUDA 12.8 PyTorch build, so the driver must support CUDA 12.8 or newer — an older one silently means CPU. | `nvidia-smi` |
+| ~10 GB disk | `.venv` is ~7.5 GB (PyTorch and its CUDA libraries dominate); the BGE-M3 weights add ~2.2 GB, plus the index | — |
+| NVIDIA GPU *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own. torch is installed with `--torch-backend=auto`, which inspects the driver and fetches the matching CUDA build, falling back to CPU when there is no usable GPU. | `nvidia-smi` |
 
 Nothing else is shared with the host: Plan RAG never touches an ambient
 interpreter, and it resolves no dependencies at runtime.
@@ -137,7 +137,9 @@ Only these prerequisites remain manual:
   BGE-M3 and provide its resulting directory to the setup command:
 
   ```bash
-  uv sync --frozen --no-dev --project "$PLUGIN/plan-rag"
+  uv sync --frozen --no-dev --inexact --no-install-package torch --project "$PLUGIN/plan-rag"
+  UV_TORCH_BACKEND=auto uv pip install --directory "$PLUGIN/plan-rag" \
+    --python "$PLUGIN/plan-rag/.venv/bin/python" torch
   "$PLUGIN/plan-rag/.venv/bin/hf" download BAAI/bge-m3 --local-dir ~/models/bge-m3
   ```
 
@@ -152,18 +154,25 @@ when the setup script cannot run.
 ### 1. Build the environment
 
 ```bash
-uv sync --frozen --project "$PLUGIN/plan-rag"
+uv sync --frozen --inexact --no-install-package torch --project "$PLUGIN/plan-rag"
+UV_TORCH_BACKEND=auto uv pip install --directory "$PLUGIN/plan-rag" \
+  --python "$PLUGIN/plan-rag/.venv/bin/python" torch
 ```
 
 That creates `$PLUGIN/plan-rag/.venv` from `uv.lock` — same versions on every
-machine, nothing resolved at install time. Expect ~6 GB, almost all of it
-PyTorch. On a slow link uv's default parallelism starves each of the big CUDA
-wheels until they hit its 30-second per-request timeout; if the sync fails that
-way, rerun it serially:
+machine, nothing resolved at install time, except torch: it is installed
+separately and resolved once against the local driver, which is the deliberate
+trade for not forcing a CUDA version. Expect ~7.5 GB, almost all of it PyTorch
+and its CUDA libraries. On a slow link uv's default parallelism starves each of
+the big CUDA wheels until they hit its 30-second per-request timeout; if either
+command fails that way, rerun it serially:
 
 ```bash
 UV_CONCURRENT_DOWNLOADS=2 UV_HTTP_TIMEOUT=1800 \
-  uv sync --frozen --project "$PLUGIN/plan-rag"
+  uv sync --frozen --inexact --no-install-package torch --project "$PLUGIN/plan-rag"
+UV_CONCURRENT_DOWNLOADS=2 UV_HTTP_TIMEOUT=1800 \
+  UV_TORCH_BACKEND=auto uv pip install --directory "$PLUGIN/plan-rag" \
+  --python "$PLUGIN/plan-rag/.venv/bin/python" torch
 ```
 
 `plan-rag.sh` runs this itself if `.venv` is missing, but an MCP host times out
