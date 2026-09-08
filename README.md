@@ -3,10 +3,9 @@
 A Claude Code plugin that turns a user's short idea into an implementable work
 plan, and makes the implementing model read that plan completely while it works.
 
-1. The user writes `intent.md` — goal, users and scenarios, constraints, non-goals, open
-   questions. The shape is `snippets/intent-template.md`; free form is accepted. A `plan.md` or
-   `structure.md` already in the project root is read as bootstrap input too; every other root
-   document becomes a reference `init-design` mines separately.
+1. The user writes the idea down — goal, users and scenarios, constraints, non-goals, open
+   questions — in one or more free-form documents at the project root. `intent.md` shaped like
+   `snippets/intent-template.md` is a suggested starting point, not a required name.
 2. `/init-design` — writes actors, scenarios (`SC-NN`), requirements with acceptance criteria
    (`R-NN`), a glossary, the architecture (project rules, components with contracts, data,
    interfaces, budgets `B-NN`), decisions (`DEC-NN`), and user constraints into `plan/`. Blanks
