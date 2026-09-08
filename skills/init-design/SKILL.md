@@ -1,5 +1,5 @@
 ---
-description: Turn a bootstrap intent document into the plan/ design — goal, actors, scenarios, requirements, architecture, decisions, and user constraints — asking the user only about choices that change what they get. Runs before /init-phases.
+description: Turn the user's bootstrap idea documents into the plan/ design — goal, actors, scenarios, requirements, architecture, decisions, and user constraints — asking the user only about choices that change what they get. Runs before /init-phases.
 disable-model-invocation: true
 model: opus
 effort: xhigh
@@ -39,9 +39,10 @@ that survive.
 Read directly:
 
 - the project description given when this skill is invoked
-- root bootstrap documents: `intent.md` (shape: `snippets/intent-template.md`), `plan.md`, and
-  `structure.md`. Free-form documents are accepted. Every other document is a reference document for
-  Step 2.
+- the root documents in which the user wrote the idea itself — one or more, free form, no fixed
+  name; `intent.md` shaped like `snippets/intent-template.md` is the suggested starting point. A
+  root document that instead describes something the design has to fit — an external or vendor
+  spec, a changelog, existing architecture — is a reference document for Step 2, not read here.
 - the canonical document table in `.claude/rules/Edit_Workflow.md`. When that file is absent, copy
   `rules/Edit_Workflow.md` and `rules/Doc_Authoring.md` from this plugin into `.claude/rules/` first.
 
