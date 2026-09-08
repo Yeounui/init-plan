@@ -2,7 +2,7 @@
 
 Claude Code and Codex plugin for keeping a project's *plan* — the canonical
 documents an implementer actually reads — correct, retrievable, and cheap to
-consult. Four skills plus a local-embedding MCP server that indexes the plan
+consult. Three skills plus a local-embedding MCP server that indexes the plan
 corpus.
 
 ## Skills
@@ -10,14 +10,12 @@ corpus.
 | Skill | Use it for |
 |-------|------------|
 | `init-plan` | Bootstrap: reads a project spec (`snippets/spec-template.md` shape, or free-form) and writes the canonical `plan/` documents — overview, requirements with stable IDs, phases, architecture, constraints — then audits them for placement and conformance. Opus, no subagents. |
-| `pseudocode-architecture` | Turn a spec, ICD, or existing system description into an implementation-ready architecture in pseudocode: classes, interfaces, call routing, ownership, timeouts, cancellation, failure paths — plus a performance-bottleneck and redesign-risk audit that fixes numeric budgets before anyone writes code. |
 | `software-doc-suite` | Decide *which* document a fact belongs in, then write it: SDD (design description), API Docs (interface contracts), SDS (design standards), SCS (code standards). Uses RFC 2119 keywords and EARS patterns as an explicit conformance level per statement. |
 | `plan-rag` | Search the plan corpus, pull source-backed excerpts with file/line provenance, inspect cross-document relations, and propose/apply safe edits to the canonical `plan/` layout. |
 
-The usual order is `pseudocode-architecture` (design) → `init-plan` (write the
-plan) → `plan-rag` (every later session reads the plan through it instead of
-re-reading files) → `software-doc-suite` (when the docs themselves need
-restructuring).
+The usual order is `init-plan` (write the plan) → `plan-rag` (every later
+session reads the plan through it instead of re-reading files) →
+`software-doc-suite` (when the docs themselves need restructuring).
 
 ## Plan RAG MCP server
 
@@ -102,7 +100,7 @@ Plan RAG is the only part with prerequisites. The skills work without it, but
 ## Repository layout
 
 ```
-skills/     init-plan, pseudocode-architecture, software-doc-suite, plan-rag
+skills/     init-plan, software-doc-suite, plan-rag
 rules/      Edit_Workflow.md (canonical placements), Doc_Authoring.md
 snippets/   spec-template.md — the preferred bootstrap spec shape
 plan-rag/   the MCP server: Python package, tests, wrapper scripts

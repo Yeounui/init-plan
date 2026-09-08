@@ -169,9 +169,9 @@ redesign-risk classes carrying an evidence check.
   a phase `Verify:` appears in at least one phase's `Verify:`, and every
   measurement command is runnable when its phase runs (its load or data
   source exists or is built by a phase ordered no later than its first use).
-  If `plan/ARCHITECTURE.md` includes function-level design, run the
-  Structure checks in `pseudocode-architecture`'s
-  `references/design-checks.md` against it.
+  If `plan/ARCHITECTURE.md` includes function-level design and the
+  `pseudocode-architecture` skill is installed, run the Structure checks in
+  its `references/design-checks.md` against it.
 
 ## Step 7 — Self-Audit
 

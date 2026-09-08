@@ -1,7 +1,7 @@
 {
   "name": "init-plan",
   "version": "1.0.0",
-  "description": "Plan-document harness for Claude Code: bootstrap a project's canonical plan/ documents, design an implementation-ready pseudocode architecture, author the SDD/API/SDS/SCS document suite, and retrieve source-backed plan evidence through the bundled Plan RAG MCP server.",
+  "description": "Plan-document harness for Claude Code: bootstrap a project's canonical plan/ documents, author the SDD/API/SDS/SCS document suite, and retrieve source-backed plan evidence through the bundled Plan RAG MCP server.",
   "author": {
     "name": "Yeounui"
   }
