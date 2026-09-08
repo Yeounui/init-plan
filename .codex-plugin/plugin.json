@@ -1,0 +1,29 @@
+{
+  "name": "init-plan",
+  "version": "1.0.0",
+  "description": "Plan-document harness: bootstrap canonical plan/ documents, design pseudocode architecture, author the SDD/API/SDS/SCS suite, and retrieve source-backed plan evidence via Plan RAG.",
+  "author": {
+    "name": "Yeounui"
+  },
+  "license": "MIT",
+  "keywords": [
+    "planning",
+    "documentation",
+    "rag",
+    "mcp",
+    "architecture"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Init Plan",
+    "shortDescription": "Bootstrap, design, and retrieve project plan documents.",
+    "longDescription": "Four skills plus a Plan RAG MCP server. init-plan writes a project's canonical plan/ documents from a spec; pseudocode-architecture turns a spec into an implementation-ready architecture with a performance and redesign-risk audit; software-doc-suite routes content into SDD, API Docs, SDS, and SCS; plan-rag searches and safely updates the plan corpus with source-backed excerpts.",
+    "developerName": "Yeounui",
+    "category": "Developer Tools",
+    "defaultPrompt": [
+      "Initialize the plan/ documents for this project.",
+      "Turn this spec into a pseudocode architecture.",
+      "What does the plan say about phase 2?"
+    ]
+  }
+}

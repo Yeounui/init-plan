@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan RAG"
+  short_description: "Extract source-backed plan evidence fast."
+  default_prompt: "Use $plan-rag to index plans and extract source-backed evidence."

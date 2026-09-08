@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "plan-rag": {
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/plan-rag/scripts/plan-rag.sh",
+      "args": ["mcp"],
+      "env": {
+        "PLAN_RAG_DAEMON_IDLE_SECONDS": "120",
+        "PLAN_RAG_READ_READY_TIMEOUT_SECONDS": "120",
+        "PLAN_RAG_MCP_WATCH": "true"
+      }
+    }
+  }
+}
