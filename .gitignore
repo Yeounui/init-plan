@@ -7,3 +7,7 @@ __pycache__/
 .venv/
 *.egg-info/
 build/
+
+# Development-only Plan RAG material; not distributed with the plugin.
+plan-rag/tests/
+plan-rag/docs/

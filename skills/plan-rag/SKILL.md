@@ -3,7 +3,7 @@ name: plan-rag
 description: Use Plan RAG to synchronize and search a configured corpus, fetch low-token source-backed evidence, inspect cross-document relations, and safely update the default canonical plan layout. Use for plan evidence, project status, decisions, phases, architecture, constraints, document edits, index freshness, or Plan RAG graph maintenance.
 disable-model-invocation: false
 argument-hint: "[status|search|section|related|propose|apply|audit|sync] <focused request>"
-allowed-tools: mcp__plan-rag__get_plan_status mcp__plan-rag__search_plan mcp__plan-rag__get_plan_section mcp__plan-rag__get_related_plan_chunks mcp__plan-rag__propose_plan_change mcp__plan-rag__apply_plan_change mcp__plan-rag__audit_plan mcp__plan-rag__sync_plan
+allowed-tools: Bash, mcp__plan-rag__get_plan_status, mcp__plan-rag__search_plan, mcp__plan-rag__get_plan_section, mcp__plan-rag__get_related_plan_chunks, mcp__plan-rag__propose_plan_change, mcp__plan-rag__apply_plan_change, mcp__plan-rag__audit_plan, mcp__plan-rag__sync_plan
 ---
 
 # Plan RAG
@@ -12,6 +12,13 @@ Use Plan RAG for source-backed retrieval across the configured Markdown corpus.
 Daemon, configuration, and CLI details are in the Plan RAG `README.md`.
 
 ## Start
+
+For a first-time project, do not manually create a virtual environment, `.env`,
+or rule files. Read `plan-rag/scripts/setup-plan-rag.sh --help`, then run that
+one script with the project's root and the user's already-downloaded BGE-M3
+model directory. If the model directory or `uv` is unavailable, direct the user
+to this plugin's root `README.md`; do not guess a local path or download the
+model without the user's direction.
 
 Call `get_plan_status()` before relying on retrieval results. It is safe during
 startup and returns immediately; other reads wait up to 120 seconds for
@@ -65,7 +72,7 @@ line appears when a source file changed after indexing.
 ```text
 get_plan_status()
 search_plan(query="status next action verified pending", top_k=5)
-search_plan(query="phase 3 servo reset", file="PHASES.md")
+search_plan(query="phase 3 Touches Verify", file="PHASES.md")
 get_plan_section(source_file="plan/README.md", heading_contains="Status")
 get_related_plan_chunks(file="plan/PHASES.md", line=42, relation_type="same_heading", limit=3, include_content=true)
 ```
