@@ -4,7 +4,9 @@ A Claude Code plugin that turns a user's short idea into an implementable work
 plan, and makes the implementing model read that plan completely while it works.
 
 1. The user writes `intent.md` — goal, users and scenarios, constraints, non-goals, open
-   questions. The shape is `snippets/intent-template.md`; free form is accepted.
+   questions. The shape is `snippets/intent-template.md`; free form is accepted. A `plan.md` or
+   `structure.md` already in the project root is read as bootstrap input too; every other root
+   document becomes a reference `init-design` mines separately.
 2. `/init-design` — writes actors, scenarios (`SC-NN`), requirements with acceptance criteria
    (`R-NN`), a glossary, the architecture (project rules, components with contracts, data,
    interfaces, budgets `B-NN`), decisions (`DEC-NN`), and user constraints into `plan/`. Blanks
@@ -62,7 +64,7 @@ of `init-design`, but nothing else.
 
 | Need | Why | Check |
 |------|-----|-------|
-| [`uv`](https://docs.astral.sh/uv/getting-started/installation/) | Builds Plan RAG's `.venv` from the committed `uv.lock`. It also fetches its own CPython, so no system or conda Python is required. | `uv --version` |
+| [`uv`](https://docs.astral.sh/uv/getting-started/installation/) | Builds Plan RAG's `.venv` — everything from the committed `uv.lock` except torch, which is matched to the local driver. It also fetches its own CPython, so no system or conda Python is required. | `uv --version` |
 | Linux or macOS, bash | `plan-rag.sh` is a bash wrapper | `bash --version` |
 | ~10 GB disk | `.venv` is ~7.5 GB (PyTorch and its CUDA libraries dominate); the BGE-M3 weights add ~2.2 GB, plus the index | — |
 | NVIDIA GPU *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own. torch is installed with `--torch-backend=auto`, which inspects the driver and fetches the matching CUDA build, falling back to CPU when there is no usable GPU. | `nvidia-smi` |
@@ -116,9 +118,9 @@ In Codex `plan-rag` is currently only usable. `init-design`, `init-phases`, and
 ## Setup
 
 After the embedding model is available locally, one command configures each
-consumer project. It installs the locked runtime (without test dependencies),
-sets the model path in `.env`, ignores generated state, copies missing rules,
-and verifies Plan RAG:
+consumer project. It installs the locked runtime (without test dependencies)
+and a driver-matched torch, sets the model path in `.env`, ignores generated
+state, copies missing rules, and verifies Plan RAG:
 
 ```bash
 bash "$PLUGIN/plan-rag/scripts/setup-plan-rag.sh" \
@@ -246,6 +248,7 @@ worth knowing:
 | `PLAN_RAG_EMBEDDING_USE_FP16` | `true` | half precision on GPU |
 | `PLAN_RAG_DOCUMENT_ROOT` | `plan` | corpus directory, relative to the project |
 | `PLAN_RAG_STATE_DIR` | `.plan-rag` | index, daemon socket, and logs |
+| `LLAMA_PID_FILE` | *(unset)* | while that pid is alive, `auto` keeps BGE-M3 on CPU so a local LLM keeps the GPU |
 
 Writes are supported only for the default canonical `plan/` layout. A custom
 `PLAN_RAG_DOCUMENT_ROOT` is retrieval-only.
