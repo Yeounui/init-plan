@@ -334,15 +334,15 @@ def _connect_or_start(
         if _pid_is_alive(paths.pid_file):
             return _wait_for_daemon(settings, paths, timeout)
         Path(paths.endpoint).unlink(missing_ok=True)
-        _spawn_daemon(settings, paths)
-        return _wait_for_daemon(settings, paths, timeout)
+        process = _spawn_daemon(settings, paths)
+        return _wait_for_daemon(settings, paths, timeout, process=process)
 
 
-def _spawn_daemon(settings: Settings, paths: DaemonPaths) -> None:
+def _spawn_daemon(settings: Settings, paths: DaemonPaths) -> subprocess.Popen:
     paths.log_file.parent.mkdir(parents=True, exist_ok=True)
     log = paths.log_file.open("ab", buffering=0)
     try:
-        subprocess.Popen(
+        return subprocess.Popen(
             [
                 sys.executable,
                 "-m",
@@ -364,6 +364,8 @@ def _wait_for_daemon(
     settings: Settings,
     paths: DaemonPaths,
     timeout: float,
+    *,
+    process: subprocess.Popen | None = None,
 ) -> socket.socket:
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
@@ -374,7 +376,16 @@ def _wait_for_daemon(
                 return _handshake(connection, settings)
             except Exception as error:
                 last_error = error
-        if paths.pid_file.exists() and not _pid_is_alive(paths.pid_file):
+        # Bail out fast once the daemon we're waiting on is confirmed dead,
+        # rather than burning the full timeout. When we hold the just-spawned
+        # process's handle, polling it is precise even if it dies before
+        # writing a pid file. Otherwise (reconnecting to a daemon we didn't
+        # spawn) fall back to the pid file, which a stale leftover file could
+        # only misreport if the daemon we're waiting on wrote a fresh one.
+        if process is not None:
+            if process.poll() is not None:
+                break
+        elif paths.pid_file.exists() and not _pid_is_alive(paths.pid_file):
             break
         time.sleep(0.05)
     detail = f": {last_error}" if last_error else ""
