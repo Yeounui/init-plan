@@ -1,6 +1,6 @@
 # Init Plan
 
-A Claude Code and Codex plugin that turns a user's short idea into an implementable work
+A Claude Code plugin that turns a user's short idea into an implementable work
 plan, and makes the implementing model read that plan completely while it works.
 
 1. The user writes `intent.md` — goal, users and scenarios, constraints, non-goals, open
@@ -110,9 +110,8 @@ env = { PLAN_RAG_DAEMON_IDLE_SECONDS = "120", PLAN_RAG_READ_READY_TIMEOUT_SECOND
 
 Restart the host after installing so it discovers the bundled skills.
 
-In Codex only `plan-rag` is usable today. `init-design`, `init-phases`, and
-`run-phase` are written for Claude Code — they depend on its skill frontmatter,
-`AskUserQuestion`, and the `Agent` and `Workflow` tools — so run those from Claude Code and use Codex for retrieval and plan updates through Plan RAG.
+In Codex `plan-rag` is currently only usable. `init-design`, `init-phases`, and
+`run-phase` are written for Claude Code.
 
 ## Setup
 
