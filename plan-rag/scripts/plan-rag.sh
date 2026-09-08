@@ -17,10 +17,20 @@ if [[ ! -d "${CONSUMER_ROOT_VALUE}" ]]; then
 fi
 CONSUMER_ROOT="$(cd "${CONSUMER_ROOT_VALUE}" && pwd)"
 if [[ -f "${CONSUMER_ROOT}/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "${CONSUMER_ROOT}/.env"
-  set +a
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    if [[ "$line" =~ ^(PLAN_RAG_[A-Z0-9_]+|LLAMA_PID_FILE)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      value="${BASH_REMATCH[2]}"
+      # Strip one layer of matching surrounding quotes (the near-universal
+      # hand-edited .env convention), then backslash-escaping from legacy
+      # `%q`-quoted files; current setup-plan-rag.sh writes plain values.
+      if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then
+        value="${BASH_REMATCH[1]}"
+      fi
+      export "${key}=${value//\\/}"
+    fi
+  done < "${CONSUMER_ROOT}/.env"
 fi
 
 # Plan RAG runs from its own uv-managed .venv inside this repo — no ambient

@@ -38,13 +38,13 @@ set_setting() {
   local key=$1 value=$2 temporary
   temporary="$(mktemp "${ENV_FILE}.tmp.XXXXXX")"
   [[ -f "$ENV_FILE" ]] && awk -v key="$key" 'index($0, key "=") != 1' "$ENV_FILE" > "$temporary"
-  printf '%s=%q\n' "$key" "$value" >> "$temporary"
+  printf '%s=%s\n' "$key" "$value" >> "$temporary"
   mv "$temporary" "$ENV_FILE"
 }
 
 append_if_missing() {
   local key=$1 value=$2
-  grep -q "^${key}=" "$ENV_FILE" 2>/dev/null || printf '%s=%q\n' "$key" "$value" >> "$ENV_FILE"
+  grep -q "^${key}=" "$ENV_FILE" 2>/dev/null || printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
 }
 
 printf 'plan-rag setup: installing locked runtime dependencies\n'
