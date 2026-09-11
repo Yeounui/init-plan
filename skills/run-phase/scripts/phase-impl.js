@@ -11,7 +11,7 @@ export const meta = {
 // args: { root, phaseNo, specPath, writers:[{name,files,items}], commits:[{cluster,items,subject,body,files}],
 //         rules, forbiddenFiles:[], checkCmd, logPath, syntaxCheck, incrementalBuildCmd, selectiveTestCmd,
 //         trailers, notes }
-//   rules     = plan/ARCHITECTURE.md > Rules text (from the Step 1 args file)
+//   rules     = plan/architecture/ARCHITECTURE.md > Rules text (from the Step 1 args file)
 //   checkCmd  = the gate, normally ./.claude/check.sh; logPath = where its output goes
 //   syntaxCheck / incrementalBuildCmd / selectiveTestCmd = spec.commands from phase-design.js ({file} / {tests} placeholders)
 //   trailers  = the commit trailer lines (Co-Authored-By, Claude-Session), verbatim
@@ -19,7 +19,7 @@ export const meta = {
 const { root, phaseNo, specPath, writers, commits, rules = '', forbiddenFiles = [], checkCmd, logPath, syntaxCheck = '', incrementalBuildCmd = '', selectiveTestCmd = '', trailers, notes = '' } = args
 
 const CONVENTIONS = `Conventions (binding):
-${rules ? 'PROJECT RULES (plan/ARCHITECTURE.md > Rules):\n' + rules + '\n' : ''}- Comments in English. Readability over line count: name intermediate values, do not fold expressions, do not shorten identifiers, do not delete rationale comments. Every non-obvious choice gets a one-line comment stating the reason (the rule it follows or the sibling site it mirrors).
+${rules ? 'PROJECT RULES (plan/architecture/ARCHITECTURE.md > Rules):\n' + rules + '\n' : ''}- Comments in English. Readability over line count: name intermediate values, do not fold expressions, do not shorten identifiers, do not delete rationale comments. Every non-obvious choice gets a one-line comment stating the reason (the rule it follows or the sibling site it mirrors).
 - Sibling paths change together: if the spec lists a site, touch it; if you find an unlisted sibling with the same pattern, report it in out_of_scope — never silently skip it, never silently fix it in a file you do not own.
 - Every plan/REVIEW.md test row the spec assigns to you flips from skipped/xfail to a real test with at least one positive and one rejection case; tests that pin the old behaviour flip, they are not deleted.
 - No abstractions the spec does not ask for.`

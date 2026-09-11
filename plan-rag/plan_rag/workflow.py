@@ -22,13 +22,18 @@ CANONICAL_DESTINATIONS = {
     "decision": "plan/DECISIONS.md",
     "procedure": "plan/PHASES.md",
     "phase": "plan/PHASES.md",
-    "architecture": "plan/ARCHITECTURE.md",
+    "architecture": "plan/architecture/ARCHITECTURE.md",
     "review": "plan/REVIEW.md",
     "qa": "plan/REVIEW.md",
     "user": "plan/USER.md",
     "local_constraint": "plan/USER.md",
 }
 DECISION_BEARING_TYPES = {"goal", "scope", "procedure", "phase", "architecture"}
+ARCHITECTURE_TREE = "plan/architecture/"
+
+
+def in_architecture_tree(relative_path: str) -> bool:
+    return relative_path.startswith(ARCHITECTURE_TREE) and relative_path.endswith(".md")
 STATUS_LINE_RE = re.compile(
     r"(?im)^\s*(?:[-*]\s*)?(?:\*\*)?status(?:\*\*)?\s*[:|]\s*"
     r"`?([^`|\n]+)`?\s*(?:\||$)"
@@ -203,7 +208,8 @@ class PlanWorkflow:
     def audit(self) -> list[dict[str, str]]:
         self._require_writable_canonical_root()
         findings: list[dict[str, str]] = []
-        for destination in sorted(set(CANONICAL_DESTINATIONS.values())):
+        canonical = sorted(set(CANONICAL_DESTINATIONS.values()))
+        for destination in canonical:
             path = self.project_root / destination
             if not path.exists():
                 findings.append(
@@ -214,18 +220,28 @@ class PlanWorkflow:
                     }
                 )
                 continue
-            content = path.read_text(encoding="utf-8")
-            for status in self._status_values(content):
-                if status not in ALLOWED_STATUSES:
-                    findings.append(
-                        {
-                            "code": "unsupported_status",
-                            "path": destination,
-                            "message": f"unsupported status: {status}",
-                        }
-                    )
-            findings.extend(self._broken_links(path, content))
+            self._audit_document(destination, path, findings)
+        tree = self.project_root / ARCHITECTURE_TREE
+        for path in sorted(tree.rglob("*.md")) if tree.is_dir() else []:
+            destination = path.relative_to(self.project_root).as_posix()
+            if destination not in canonical:
+                self._audit_document(destination, path, findings)
         return findings
+
+    def _audit_document(
+        self, destination: str, path: Path, findings: list[dict[str, str]]
+    ) -> None:
+        content = path.read_text(encoding="utf-8")
+        for status in self._status_values(content):
+            if status not in ALLOWED_STATUSES:
+                findings.append(
+                    {
+                        "code": "unsupported_status",
+                        "path": destination,
+                        "message": f"unsupported status: {status}",
+                    }
+                )
+        findings.extend(self._broken_links(path, content))
 
     def _validate_changes(
         self,
@@ -245,7 +261,10 @@ class PlanWorkflow:
                 raise PlanWorkflowError(
                     f"unsupported change_type: {change.change_type}"
                 )
-            if change.path != expected:
+            if change.path != expected and not (
+                change.change_type == "architecture"
+                and in_architecture_tree(change.path)
+            ):
                 raise PlanWorkflowError(
                     f"{change.change_type} changes belong in {expected}"
                 )
@@ -367,7 +386,9 @@ class PlanWorkflow:
         return findings
 
     def _target(self, relative_path: str) -> Path:
-        if relative_path not in set(CANONICAL_DESTINATIONS.values()):
+        if relative_path not in set(
+            CANONICAL_DESTINATIONS.values()
+        ) and not in_architecture_tree(relative_path):
             raise PlanWorkflowError(f"non-canonical target: {relative_path}")
         target = (self.project_root / relative_path).resolve()
         try:

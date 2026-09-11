@@ -27,7 +27,7 @@ verbatim excerpt with file:line.
 
 - `item`: id (`R-NN` or a component name), cluster, one-line summary.
 - `argsFile`: JSON with `phaseSection` (Covers / Touches / Verify),
-  `components[]` (the plan/ARCHITECTURE.md sections the phase touches:
+  `components[]` (the plan/architecture/ component documents the phase touches:
   Operations, Owns, Depends `→`/`←`, Test seam), `tests[]` (the
   plan/REVIEW.md rows for the phase), `rules` (the project rule table).
 - `strategy`: `grep` or `trace` (below). A sibling sweeper runs the other one.
@@ -62,7 +62,7 @@ Report each axis either with sites or with an explicit negative claim
    enumerates that set and for exhaustive-branch loops that fail on an
    unknown member. These must flip, not be deleted; list them.
 4. **Documents stating the old behaviour.** `README.md`,
-   `plan/ARCHITECTURE.md`, `plan/REVIEW.md`, header and module comments.
+   `plan/architecture/`, `plan/REVIEW.md`, header and module comments.
 5. **Duplicated literals / regexes / constants.** The same magic value spelled
    elsewhere (a size, a timeout, an identifier pattern, a default path).
 6. **Fixed-size buffers and caps the changed data flows through.** When the

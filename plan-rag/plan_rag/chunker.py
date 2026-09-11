@@ -46,6 +46,8 @@ class MarkdownPlanChunker:
         lines = text.splitlines(keepends=True)
         file_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
         document_type = Path(source_file).stem.upper()
+        if "architecture" in Path(source_file).parts[:-1]:
+            document_type = "ARCHITECTURE"
         chunks: list[PlanChunk] = []
 
         for section in self._sections(lines):

@@ -1,7 +1,7 @@
 ---
 description: Use when defining or changing project scope, plan documents, or file structure.
 paths:
-  - "./plan/*.md"
+  - "./plan/**/*.md"
 ---
 
 ## When To Use
@@ -21,7 +21,7 @@ Before non-trivial work, gather context in this order:
 3. request task-relevant planning facts through `plan-rag`
 4. the files that will actually be changed
 
-Main Model reads `plan/README.md` directly as the bootstrap/fallback entry point (the `Next:` line, open items, document map). Retrieve and edit all other `plan/*.md` files through `plan-rag`; root bootstrap specs such as `plan.md` and `structure.md` sit outside the index and are read directly. Initial plan creation runs `init-design`, which writes the design — `plan/OVERVIEW.md`, `plan/ARCHITECTURE.md`, `plan/DECISIONS.md`, `plan/USER.md`, `plan/README.md` — and then `init-phases`, which reads that design through `plan-rag` and writes `plan/PHASES.md` and `plan/REVIEW.md`. Implementation runs `run-phase`, one phase per invocation: it reads the phase and its components through `plan-rag`, and closes the phase in `plan/REVIEW.md` and the `Next:` line through `plan-rag`. A project whose `plan-rag` runs on a non-default document root has no write tools — there, retrieve through `plan-rag` but edit the file directly and call `sync_plan`.
+Main Model reads `plan/README.md` directly as the bootstrap/fallback entry point (the `Next:` line, open items, document map). Retrieve and edit all other `plan/**/*.md` files through `plan-rag`; root bootstrap specs such as `plan.md` and `structure.md` sit outside the index and are read directly. Initial plan creation runs `init-design`, which writes the design — `plan/OVERVIEW.md`, the `plan/architecture/` tree, `plan/DECISIONS.md`, `plan/USER.md`, `plan/README.md` — and then `init-phases`, which reads that design through `plan-rag` and writes `plan/PHASES.md` and `plan/REVIEW.md`. Implementation runs `run-phase`, one phase per invocation: it reads the phase and its components through `plan-rag`, and closes the phase in `plan/REVIEW.md` and the `Next:` line through `plan-rag`. A project whose `plan-rag` runs on a non-default document root has no write tools — there, retrieve through `plan-rag` but edit the file directly and call `sync_plan`.
 
 While gathering context, surface conflicts, stale state, missing context, or unclear goals.
 Do not silently guess around inconsistencies.
@@ -38,7 +38,7 @@ Non-canonical files should link or map to the canonical location instead of repe
 | Next action (`Next:`), open items (`OPEN-NN`), and document map | `plan/README.md` |
 | Decision history (`DEC-NN`) | `plan/DECISIONS.md` |
 | Work phases and procedure | `plan/PHASES.md` |
-| Code structure, architecture, project-wide rules, and budgets (`B-NN`) | `plan/ARCHITECTURE.md` |
+| Code structure, architecture, project-wide rules, and budgets (`B-NN`) | `plan/architecture/` — `ARCHITECTURE.md` holds toolchain and rules and routes to one `<element>/<element>.md` per component and per system-wide table (data, interfaces, budgets, coverage), paths camelCase; a sub-element nests as `<element>/<sub>/<sub>.md` |
 | Review, QA (requirement-to-test map), fallback, per-phase progress/verification status | `plan/REVIEW.md` |
 | User-run tasks and local constraints | `plan/USER.md` |
 | Executable scripts | `scripts/` |
@@ -57,7 +57,7 @@ Choose the location before adding new Markdown content.
 - goal, scope, requirement, or usage scenario change -> `plan/OVERVIEW.md`
 - decision change -> `plan/DECISIONS.md`
 - procedure change -> `plan/PHASES.md` (keep each phase's `Covers:` / `Touches:` / `Verify:` fields current)
-- architecture change -> `plan/ARCHITECTURE.md`
+- architecture change -> that element's document under `plan/architecture/`; a new element also gets a routing row in `plan/architecture/ARCHITECTURE.md`
 - review, QA, or phase progress/verification status change -> `plan/REVIEW.md`
 - local execution or user action -> `plan/USER.md`
 - long example code -> `snippets/`
@@ -71,7 +71,7 @@ Do not do unrelated document cleanup, wording normalization, or formatting chang
 
 A question that needs the user, or a value that needs a measurement, is one line under `## Open Items` in `plan/README.md`, in ID order:
 
-- OPEN-03 [user] Which runs does the history view list? — options: last 50 (recommended) / all — provisional: last 50 — blocks: [RunStore](ARCHITECTURE.md#runstore), R-04
+- OPEN-03 [user] Which runs does the history view list? — options: last 50 (recommended) / all — provisional: last 50 — blocks: [RunStore](architecture/runStore/runStore.md), R-04
 - OPEN-04 [measure] Batch flush interval — closes when: `pytest tests/test_flush.py -k latency` runs in its phase — provisional: 200 ms
 
 The tag is `[user]` or `[measure]`. Fields follow the question in this order, each one omitted when it does not apply: `options:` (2-4, recommended first), `closes when:` (the command that settles it), `provisional:` (the value in force until it closes), `blocks:` (what it holds up).

@@ -9,6 +9,8 @@ from urllib.parse import unquote, urlparse
 
 from plan_rag.models import ChunkRelation, PlanChunk
 
+ARCHITECTURE_ROOT = "plan/architecture/ARCHITECTURE.md"
+
 
 WIKI_LINK_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]\n]*]\(([^)\n]+)\)")
@@ -171,6 +173,8 @@ def _resolve_plan_target(
     if not document.suffix:
         if "/" not in target:
             document = PurePosixPath("plan") / f"{target.upper()}.md"
+            if target.upper() == "ARCHITECTURE":
+                document = PurePosixPath(ARCHITECTURE_ROOT)
         else:
             document = document.with_suffix(".md")
     elif not document.parent or str(document.parent) == ".":

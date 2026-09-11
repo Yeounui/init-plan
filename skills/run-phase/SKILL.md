@@ -36,7 +36,7 @@ Read `plan/README.md` directly. N is the argument, else the phase the `Next:` li
 - The phase's `Blocked by:` names an open `OPEN-NN` — stop and list them.
 - `$RP/phase-N-spec.json` exists and `git log` has no `Phase: N` commit — continue at Step 3.
 - `.claude/check.sh` absent — copy `$PLUGIN/snippets/check.sh` there, fill its command arrays
-  from `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains="Toolchain")`,
+  from `get_plan_section(source_file="plan/architecture/ARCHITECTURE.md", heading_contains="Toolchain")`,
   `chmod +x`, run it once, and add the Stop hook to `.claude/settings.json`:
 
   ```json
@@ -57,8 +57,8 @@ phase in every query:
 | Fact | Call |
 |------|------|
 | The phase: `Covers:`, `Touches:`, `Verify:`, `Blocked by:` | `get_plan_section(source_file="plan/PHASES.md", heading_contains="Phase N")` |
-| One section per component `Touches:` links | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains="<Component>")` |
-| Rules table, Toolchain, Budgets | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains=...)` for `Rules`, `Toolchain`, `Budgets` |
+| One document per component `Touches:` links | `get_plan_section(source_file="plan/architecture/<component>/<component>.md")`, plus each of its `## Sub-elements` rows |
+| Rules table, Toolchain, Budgets | `get_plan_section(source_file="plan/architecture/ARCHITECTURE.md", heading_contains=...)` for `Rules` and `Toolchain`; `get_plan_section(source_file="plan/architecture/budgets/budgets.md")` |
 | Test rows the phase must flip | `search_plan(query="Phase N <R-NN> test", file="REVIEW.md", top_k=5)` and the phase row |
 | Decisions and provisional values on the touched components | `search_plan(query="Phase N <Component> decision provisional", file="DECISIONS.md", top_k=3)` |
 

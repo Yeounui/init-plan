@@ -13,7 +13,7 @@ The design is retrieved through `plan-rag`; this skill sequences it and designs 
 
 Read `plan/README.md` directly; it is the bootstrap entry point, outside the index.
 
-- `plan/OVERVIEW.md` or `plan/ARCHITECTURE.md` absent — stop; the user runs `/init-design`.
+- `plan/OVERVIEW.md` or `plan/architecture/ARCHITECTURE.md` absent — stop; the user runs `/init-design`.
 - `Next:` names a step of this skill — continue from that step.
 - `plan/PHASES.md` exists — ask (AskUserQuestion) to extend or restart. Extend keeps the
   existing phase numbers, `Covers:`, and `plan/REVIEW.md` rows and appends after the
@@ -32,12 +32,12 @@ The headings below are the ones `/init-design` writes.
 | Fact | Call |
 |------|------|
 | Goal and non-goals, actors, scenarios `SC-NN` with numbered steps and failure flows, requirements `R-NN` with acceptance criteria, glossary | `get_plan_section(source_file="plan/OVERVIEW.md", heading_contains=...)` for `Goal`, `Non-Goals`, `Actors`, `Scenarios`, `Requirements`, `Glossary` |
-| Toolchain and design constraints: language, build, run, test runner, lint/format | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains="Toolchain")` |
-| Project-wide rules: layering, error model, concurrency, conventions | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains="Rules")` |
-| Boundary-crossing and persisted data, external interfaces | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains=...)` for `Data`, `Interfaces` |
-| Budgets `B-NN` with units, conditions, measurement commands, owning component | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains="Budgets")` |
-| Per component: `Responsibility`, `Path`, `Serves` (`R-NN`), `Operations` with contracts, `Owns`, `Failure`, `Depends` (`→` calls, `←` called by), `Test seam` with its fake | the `plan/ARCHITECTURE.md` outline, then one call per `### <Name>` under `Components`; a `### Sequence — SC-NN step N` heading is a flow, not a component |
-| Scenario step → component map | `get_plan_section(source_file="plan/ARCHITECTURE.md", heading_contains="Coverage")` |
+| Toolchain and design constraints: language, build, run, test runner, lint/format | `get_plan_section(source_file="plan/architecture/ARCHITECTURE.md", heading_contains="Toolchain")` |
+| Project-wide rules: layering, error model, concurrency, conventions | `get_plan_section(source_file="plan/architecture/ARCHITECTURE.md", heading_contains="Rules")` |
+| Boundary-crossing and persisted data, external interfaces | `get_plan_section(source_file="plan/architecture/data/data.md")` and `get_plan_section(source_file="plan/architecture/interfaces/interfaces.md")` |
+| Budgets `B-NN` with units, conditions, measurement commands, owning component | `get_plan_section(source_file="plan/architecture/budgets/budgets.md")` |
+| Per component: `Responsibility`, `Path`, `Serves` (`R-NN`), `Operations` with contracts, `Owns`, `Failure`, `Depends` (`→` calls, `←` called by), `Test seam` with its fake | the `## Components` routing table of `plan/architecture/ARCHITECTURE.md`, then `get_plan_section(source_file="plan/architecture/<name>/<name>.md")` per row and per `## Sub-elements` row; `plan/architecture/coverage/sc-NN/sc-NN.md` holds flows, not components |
+| Scenario step → component map | `get_plan_section(source_file="plan/architecture/coverage/coverage.md")` |
 | User-run tasks, secrets, paths, hardware, limits | `get_plan_section(source_file="plan/USER.md")` |
 | Provisional values and their revisit triggers | `search_plan(query="provisional assumption revisit when", file="DECISIONS.md", top_k=3)` |
 
@@ -93,7 +93,7 @@ Each phase declares:
 
 - `Covers:` — the `R-NN` it implements, or `infrastructure`
 - `Touches:` — files and symbols it creates or modifies, each linked to its component
-  heading in `plan/ARCHITECTURE.md`
+  document under `plan/architecture/`
 - `Verify:` — the commands whose pass defines the phase verified, including every
   `B-NN` measurement on a path it touches
 - `Blocked by:` — the `OPEN-NN` items on a boundary it depends on; omit when none
@@ -110,7 +110,7 @@ phases cut along component boundaries, ordered so each component's `Depends: →
 are built first.
 
 Two phases list the same file in `Touches:` only when the plan orders them explicitly and
-the shared symbol's shape is already pinned in `plan/ARCHITECTURE.md`. Size each phase
+the shared symbol's shape is already pinned in `plan/architecture/`. Size each phase
 against `plan/USER.md` — context size, concurrency, hardware windows — so one phase is one
 session's work. A phase with a non-empty `Blocked by:` is written in full and started once
 every `OPEN-NN` it names closes.
@@ -126,7 +126,7 @@ Write with Write/Edit. Read an existing document before editing it and preserve
 unrelated headings, tables, and wording.
 
 - `plan/PHASES.md`: one `## Phase N — <name>` section per phase carrying the four fields,
-  referencing the design by link (`[RunStore](ARCHITECTURE.md#runstore)`), never by copy.
+  referencing the design by link (`[RunStore](architecture/runStore/runStore.md)`), never by copy.
 - `plan/REVIEW.md`: the Step 2 test table (`R-NN`, test, kind, phase, status), the Step 3
   harness table (item, purpose, fact, phase), and a per-phase row (phase, `Covers:`,
   status, blocking `OPEN-NN`), in `Edit_Workflow.md` status terms — tests start at
@@ -144,7 +144,7 @@ Run `audit_plan()`. It reports unsupported status terms and broken `[text](targe
 links across the canonical documents. Then check directly:
 
 1. Every retrieved `R-NN` is in some `Covers:`; every phase covers an `R-NN` or is
-   infrastructure; every component in `plan/ARCHITECTURE.md` is in some `Touches:`, and
+   infrastructure; every component routed from `plan/architecture/ARCHITECTURE.md` is in some `Touches:`, and
    the `R-NN` it `Serves` are in the `Covers:` of a phase that touches it.
 2. Every `R-NN` has a test row in `plan/REVIEW.md`; Phase 1's `Touches:` lists every test
    file and harness item with the fact that needs it.

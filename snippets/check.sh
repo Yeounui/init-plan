@@ -3,7 +3,7 @@
 #
 # /run-phase's build-fixer runs it exactly once per phase and the Stop hook in
 # .claude/settings.json runs it when source files are dirty. Fill the three
-# command arrays from plan/ARCHITECTURE.md > Toolchain. Keep the exit code
+# command arrays from plan/architecture/ARCHITECTURE.md > Toolchain. Keep the exit code
 # honest: never pipe a step into `tail`, and keep the final OK line last —
 # callers grep for it.
 set -euo pipefail

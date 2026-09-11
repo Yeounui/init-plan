@@ -40,7 +40,7 @@ forbidden_files (uncommitted owner work; sweep them, flag hits in_forbidden=true
 ${forbiddenFiles.map(f => '  - ' + f).join('\n') || '  (none)'}
 
 item ${it.id}, cluster "${it.cluster}": ${it.summary}
-PHASE AND DESIGN: Read ${argsFile} (JSON). "phaseSection" is the Phase ${phaseNo} text (Covers / Touches / Verify); "components[]" are the plan/ARCHITECTURE.md sections the phase touches (Operations with contracts, Owns, Depends, Test seam); "tests[]" are the plan/REVIEW.md rows for this phase; "rules" is the project rule table; "notes" holds owner rulings. The primary sites of your item are the files and symbols Touches names for it.
+PHASE AND DESIGN: Read ${argsFile} (JSON). "phaseSection" is the Phase ${phaseNo} text (Covers / Touches / Verify); "components[]" are the plan/architecture/ component documents the phase touches (Operations with contracts, Owns, Depends, Test seam); "tests[]" are the plan/REVIEW.md rows for this phase; "rules" is the project rule table; "notes" holds owner rulings. The primary sites of your item are the files and symbols Touches names for it.
 
 Return ONLY the structured output.`
 }
@@ -99,7 +99,7 @@ const SPEC_SCHEMA = {
 }
 
 const CONVENTIONS = `Conventions (binding for the spec you write):
-- The project rule table in ${argsFile} "rules" (plan/ARCHITECTURE.md > Rules) binds every edit; a non-obvious choice gets a one-line comment citing the rule or the sibling site it mirrors. Comments in English.
+- The project rule table in ${argsFile} "rules" (plan/architecture/ARCHITECTURE.md > Rules) binds every edit; a non-obvious choice gets a one-line comment citing the rule or the sibling site it mirrors. Comments in English.
 - Readability over line count: name intermediate values, no expression folding, no identifier shortening, keep rationale comments.
 - No new abstractions the phase does not need (no interfaces, factories, config knobs). Reuse an existing helper before writing one; one shared helper beats N local copies when >=2 sites need the same logic.
 - Owner-edited lines (forbidden files) are never rewritten or reformatted.
@@ -110,12 +110,12 @@ const CONVENTIONS = `Conventions (binding for the spec you write):
 function designPrompt(sweeps) {
   return `Repository: ${root}. Phase ${phaseNo}. You are the ONE design agent for this whole phase: produce an implementation spec that sonnet writers execute file by file without re-deriving anything, plus the commit plan and the toolchain commands. You do not edit files.
 
-AUTHORITY: the plan. plan/OVERVIEW.md requirements (R-NN) with their acceptance criteria, plan/ARCHITECTURE.md component contracts (Operations with params, units, ranges, return, errors, requires/ensures; Owns; Failure; Depends; Test seam), its Rules table and Budgets (B-NN), and plan/DECISIONS.md — all delivered in ${argsFile}. Existing code, comments and existing tests are not authority; when they conflict with the plan, the plan wins and the code or test changes as part of this phase. Depth cap: the plan pins an operation's contract; its body, private helpers, algorithm and internal layout are yours to design here — design production-quality bodies, not the least-disruptive patch. When the plan is wrong or silent on a shared boundary, do not invent a contract: raise it in owner_questions with the ARCHITECTURE heading it would change.
+AUTHORITY: the plan. plan/OVERVIEW.md requirements (R-NN) with their acceptance criteria, plan/architecture/ component contracts (Operations with params, units, ranges, return, errors, requires/ensures; Owns; Failure; Depends; Test seam), its Rules table and Budgets (B-NN), and plan/DECISIONS.md — all delivered in ${argsFile}. Existing code, comments and existing tests are not authority; when they conflict with the plan, the plan wins and the code or test changes as part of this phase. Depth cap: the plan pins an operation's contract; its body, private helpers, algorithm and internal layout are yours to design here — design production-quality bodies, not the least-disruptive patch. When the plan is wrong or silent on a shared boundary, do not invent a contract: raise it in owner_questions with the ARCHITECTURE heading it would change.
 
 FORBIDDEN FILES (uncommitted owner work in the working tree — a batch commit must not sweep those hunks in). Do NOT plan edits in them; if an item cannot be implemented without touching one, set verdict "deferred" with the file named in verdict_reason and list it in forbidden_touched:
 ${forbiddenFiles.map(f => '  - ' + f).join('\n') || '  (none)'}
 
-PHASE: Read ${argsFile} (JSON): "phaseSection" (Covers / Touches / Verify / Blocked by), "components[]" (one plan/ARCHITECTURE.md section per touched component), "rules", "toolchain", "budgets", "tests[]" (plan/REVIEW.md rows: requirement, file, name, kind, status), "notes" = OWNER RULINGS FOR THIS PHASE (binding).
+PHASE: Read ${argsFile} (JSON): "phaseSection" (Covers / Touches / Verify / Blocked by), "components[]" (one plan/architecture/ document per touched component), "rules", "toolchain", "budgets", "tests[]" (plan/REVIEW.md rows: requirement, file, name, kind, status), "notes" = OWNER RULINGS FOR THIS PHASE (binding).
 ITEMS: ${items.map(it => `${it.id} (cluster=${it.cluster}): ${it.summary}`).join('; ')}
 ${notes ? '\nOWNER RULINGS:\n' + notes + '\n' : ''}
 SWEEP REPORTS (haiku, two strategies per item; over-reported on purpose — you adjudicate EVERY listed site):
@@ -161,7 +161,7 @@ For EVERY identifier below run, from ${root}:
 CHANGED IDENTIFIERS:
 ${spec.changed_identifiers.map(s => '  - ' + s).join('\n')}
 
-Every hit whose file (or file:line) is NOT in this list of sites the spec already covers is a gap — report it with the excerpt and one sentence on why it matters (same pattern / caller / test pin / doc / duplicate literal). A hit inside a comment that merely mentions the identifier is still a gap if the comment states the old behaviour. plan/ hits are gaps only when they state the old behaviour (plan/ARCHITECTURE.md, plan/REVIEW.md); the plan naming the identifier as the contract is not a gap.
+Every hit whose file (or file:line) is NOT in this list of sites the spec already covers is a gap — report it with the excerpt and one sentence on why it matters (same pattern / caller / test pin / doc / duplicate literal). A hit inside a comment that merely mentions the identifier is still a gap if the comment states the old behaviour. plan/ hits are gaps only when they state the old behaviour (plan/architecture/, plan/REVIEW.md); the plan naming the identifier as the contract is not a gap.
 SITES ALREADY COVERED:
 ${Array.from(listed).map(s => '  - ' + s).join('\n')}
 

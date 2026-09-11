@@ -2,7 +2,7 @@
 
 The requirements half of the design: what the system is for, who crosses its boundary, what a full run looks like
 from outside, and every obligation an implementer can check. The design half — toolchain, rules, components,
-data, interfaces, budgets, coverage — is `plan/ARCHITECTURE.md`.
+data, interfaces, budgets, coverage — is `plan/architecture/`.
 
 ## Heading contract
 
@@ -59,7 +59,7 @@ calls or notifies out, `↔` both. Anything absent from the table does not cross
 
 One `### SC-NN <name>` per outcome an actor wants. Steps stay at the system boundary — what the actor sends,
 what the system returns or emits; a step naming an internal component is design and belongs to
-`plan/ARCHITECTURE.md`. Step numbers are stable, because requirements cite `SC-01.3`. Write the main flow, then
+`plan/architecture/`. Step numbers are stable, because requirements cite `SC-01.3`. Write the main flow, then
 each failure flow worth designing for, keyed to its step. `Guarantee:` states what holds however the run ends.
 
 ```
@@ -109,7 +109,7 @@ command with its expected result or a Given/When/Then; source, an `SC-NN` step, 
 | One trigger per sentence, in the shapes `<subject> <response>`, `WHEN <trigger>, …`, `WHILE <state>, …`, `IF <fault>, THEN …`, `WHERE <configuration>, …`, keywords uppercase | a two-trigger sentence is testable for neither |
 | Strength lives in the Level column; the sentence carries no must, always, or never | the reader cannot tell whether a deviation is permitted |
 | No vague word — fast, quick, easy, simple, robust, reliable, scalable, efficient, secure, seamless, user-friendly, appropriate, sufficient, as needed, if possible; each becomes a number with its unit and condition, or an observable event | nothing can fail the row |
-| The sentence states what is observable at the boundary, never a library, schema, or algorithm | the design gets decided here and again in `plan/ARCHITECTURE.md` |
+| The sentence states what is observable at the boundary, never a library, schema, or algorithm | the design gets decided here and again in `plan/architecture/` |
 
 ```
 Not: The service syncs notes quickly and reliably.
@@ -126,7 +126,7 @@ change what, and what is rejected), usability (what an actor does untrained, and
 maintainability (what stays changeable, and what checks it), portability (platforms, versions, runtimes),
 compatibility (formats, protocols, versions).
 
-A system-level number stays in its `R-NN` row. Each component's share of it is a `B-NN` row under `## Budgets` in `plan/ARCHITECTURE.md` citing the `R-NN`; a share is a different number, and no number appears in both places.
+A system-level number stays in its `R-NN` row. Each component's share of it is a `B-NN` row in `plan/architecture/budgets/budgets.md` citing the `R-NN`; a share is a different number, and no number appears in both places.
 
 ## Acceptance criteria
 
@@ -157,7 +157,7 @@ identifier. Renaming one is a `DEC-NN`, never a writing choice; two source names
 
 ## Checks
 
-Traceability runs `SC-NN.step` → `R-NN` → component (`## Coverage`, `plan/ARCHITECTURE.md`) → test (`plan/REVIEW.md`); this document owns the first two links.
+Traceability runs `SC-NN.step` → `R-NN` → component (`plan/architecture/coverage/coverage.md`) → test (`plan/REVIEW.md`); this document owns the first two links.
 
 1. The six headings are present, in order, and no other `##` heading exists.
 2. Every `SC-NN` main step and every failure flow appears in the Source column of some `R-NN`.
@@ -169,11 +169,12 @@ Traceability runs `SC-NN.step` → `R-NN` → component (`## Coverage`, `plan/AR
 8. Every actor is a scenario's actor or the target of a step, and every scenario actor is in the Actors table.
 9. Every project-specific term in a scenario or requirement is in the Glossary, spelled as the source spells it.
 10. `R-NN` and `SC-NN` are unique and ascending, no ID changed meaning, and `rg 'OPEN-' plan/OVERVIEW.md` finds every marker listed in `plan/README.md`.
+11. No table cell holds more than one clause and no paragraph runs past six lines — `references/architecture.md` § Form; `plan-check.py plan/` reports `PASS form`.
 
 ## Common failures
 
 - **A requirement restating the goal.** "The service syncs notes" has no acceptance that can fail.
-- **Design inside a row.** A library, schema, or internal call named here decides `plan/ARCHITECTURE.md` from the wrong document.
+- **Design inside a row.** A library, schema, or internal call named here decides `plan/architecture/` from the wrong document.
 - **Scenarios at component granularity.** The flow is written twice and `## Coverage` has nothing left to connect.
 - **One quality row per category.** The categories are a checklist of what to consider, not a template.
 - **Renamed source terms.** Every reader's vocabulary and every cross-reference into the source breaks.

@@ -1,6 +1,41 @@
-# plan/ARCHITECTURE.md — the design half
+# plan/architecture/ — the design half
 
-Seven headings, fixed, in this order: `## Toolchain`, `## Rules`, `## Components`, `## Data`, `## Interfaces`, `## Budgets`, `## Coverage`. `/init-phases` retrieves by heading name.
+A tree. `plan/architecture/ARCHITECTURE.md` is the root: it holds `## Toolchain` and `## Rules` in full and routes every other heading to one element document. An element is a component or one of the four system-wide tables; each has a directory named after it and a document of the same name inside — the path spelling is the element name with its first letter lowered (`GrpcSession` → `grpcSession/grpcSession.md`), while the title and every mention keep the PascalCase name. A sub-element of a component nests the same way. `/init-phases` retrieves by file and heading name.
+
+```
+plan/architecture/ARCHITECTURE.md                      # Toolchain, Rules, one routing row per element
+plan/architecture/dispatcher/dispatcher.md             # one per component
+plan/architecture/dispatcher/leaseTable/leaseTable.md  # a sub-element, only when one exists
+plan/architecture/data/data.md
+plan/architecture/interfaces/interfaces.md
+plan/architecture/budgets/budgets.md
+plan/architecture/coverage/coverage.md
+plan/architecture/coverage/sc-01/sc-01.md              # the Sequence sections of SC-01
+```
+
+The root's seven headings, fixed, in this order: `## Toolchain`, `## Rules`, `## Components`, `## Data`, `## Interfaces`, `## Budgets`, `## Coverage`. Under `## Components`, one routing row per component — `| Dispatcher | assigns an admitted job to a worker and records the outcome. | [Dispatcher](dispatcher/dispatcher.md) |`; under each of the last four, one line linking the element document. An element document is at most 120 lines; a component past that splits a sub-element out.
+
+## Form
+
+`plan-rag` retrieves one chunk per heading and splits a section longer than about 4800 characters at
+blank lines, so a heading is the unit a phase reads and a blank line is where a split lands. Every plan
+document keeps these; `plan-check.py` reports a breach as `form`.
+
+- An element document opens with `# <Name>`, `Responsibility:`, `Path:`, `Serves:`; everything else sits
+  under a `## ` heading, in this order and each only when the field table permits it: `## Operations`,
+  `## Owns`, `## Failure`, `## Depends`, `## Test seam`, `## Sub-elements`.
+- Inside `plan/architecture/`, a `## ` section is at most 60 lines and a `### ` block at most 20, table
+  rows counted. Operations that do not fit one section are split into `## Operations — <group>`
+  sections, still one `### ` block per operation. A blank line precedes every heading and every table.
+- An operation is one `### <operation>` block: its signature in backticks on the first line, then
+  `- requires:`, `- ensures:`, `- errors:`. A state machine is one `### States` table under `## Owns`.
+- A line outside a table is at most 120 characters; a paragraph is at most 6 lines and a list item at
+  most 4; anything longer is a list, or the item's sub-items. `## Failure`, `## Depends` and `## Test seam` hold lists only — `- Raises:`, `- Absorbs:`,
+  `- Forwards:`; `- →`, `- ←`; `- Driven:`, `- Observed:`, `- Fake:` — one item per clause.
+- A table cell holds one clause: at most 160 characters and no second sentence. A cell that needs more
+  keeps the clause that summarises and moves the rest into a `### <row key>` block under the table, one
+  list item per column it expands; a table where every row would need one is written as those blocks
+  and no table. The table indexes; the block describes.
 
 ## Depth cap
 
@@ -44,48 +79,66 @@ Project-wide rules every component obeys, stated without naming one. Five areas:
 
 ## Components
 
-One `### <Name>` per component. The name spelled here is used everywhere — phases link to this heading.
+One `plan/architecture/<name>/<name>.md` per component, titled `# <Name>`, with one routing row under `## Components` in the root. The name spelled here is used everywhere — phases link to this document. A sub-element — a named part of a component whose contracts stand on their own: a framing layer, a state machine, a boot sequence, a service surface — is `plan/architecture/<name>/<sub>/<sub>.md` carrying `# <Sub>`, `Responsibility:`, and whichever of Operations, Owns and Test seam it holds; the parent keeps Serves, Failure and Depends for the whole component and routes to it from a `## Sub-elements` table (`| Sub-element | Responsibility | Document |`).
 
 | Field | Content | Omit when |
 |---|---|---|
 | Responsibility | one sentence, one role | never |
 | Path | target file or directory | never |
 | Serves | the `R-NN` it implements | never |
-| Operations | one block per public operation: pseudo-signature, `requires:`, `ensures:`, errors | it exposes none |
+| Operations | one `### <operation>` block per public operation: signature, `requires:`, `ensures:`, errors | it exposes none |
 | Owns | data, exclusive resources, budget share, states with their transitions | it owns nothing |
 | Failure | what it raises, absorbs, forwards, and which component handles each | it cannot fail |
 | Depends | `→` what it calls, `←` what calls it | never |
 | Test seam | how it is driven and observed, and the fake standing in for it | never |
 
 ```
-### Dispatcher
+# Dispatcher
 Responsibility: assigns an admitted job to a worker and records the outcome.
 Path: `src/dispatch/dispatcher.<ext>`
 Serves: R-03, R-07
-Operations:
-  claim_next(worker_id, lease_s = 30) -> Job | None
-    requires:  worker_id is registered; lease_s is 5–300
-    ensures:   on success the job is Claimed by worker_id for lease_s and is returned to no
-               other caller before the lease expires; None means no job is Admitted
-    errors:    StoreUnavailable — transient, the caller retries
-Owns: the lease table, at most one lease per job. Budget share: B-03.
+
+## Operations
+
+### claim_next
+`claim_next(worker_id, lease_s = 30) -> Job | None`
+- requires: worker_id is registered; lease_s is 5–300
+- ensures: on success the job is Claimed by worker_id for lease_s and is returned to no other caller
+  before the lease expires; None means no job is Admitted
+- errors: StoreUnavailable — transient, the caller retries
+
+## Owns
+The lease table, at most one lease per job. Budget share: B-03.
+
+### States
 | From     | Trigger      | To       | Guard              | Effect                   |
 |----------|--------------|----------|--------------------|--------------------------|
 | Admitted | claim_next   | Claimed  | a worker slot free | write lease and expiry   |
 | Admitted | claim_next   | Admitted | no worker slot     | return None              |
 | Claimed  | report       | Done     | lease unexpired    | clear lease              |
 | Claimed  | lease expiry | Admitted | —                  | clear lease, count retry |
-Failure: raises StoreUnavailable and LeaseExpired, forwards worker errors unchanged; Intake translates both.
-Depends: → JobStore (claim, update); ← Intake (submit), WorkerClient (report)
-Test seam: takes a JobStore handle and a settable clock; the fake JobStore serves a scripted job list, so
-lease expiry runs without waiting.
+
+## Failure
+- Raises: StoreUnavailable, LeaseExpired — Intake translates both
+- Absorbs: nothing
+- Forwards: worker errors unchanged, to Intake
+
+## Depends
+- → JobStore (claim, update)
+- ← Intake (submit), WorkerClient (report)
+
+## Test seam
+- Driven: takes a JobStore handle and a settable clock
+- Observed: the lease table through claim_next and report
+- Fake: the fake JobStore serves a scripted job list, so lease expiry runs without waiting
 ```
 
 - An operation no other component calls is implementation. Units and ranges sit on the parameter line.
 - A state table is written when another component observes the state or the state outlives a restart, and lists every trigger from every state, the rejected ones included.
 - `Depends` names both directions: `/init-phases` orders phases from `→` and finds shared files from `←`. Edges form no cycle; a cycle is rewritten with one direction as an event.
 - A boundary is **pinned** when the operation name, every parameter with unit and range, the return, the error list, `requires:`, and `ensures:` are all written. Two phases share a file only over a pinned boundary, and Phase 1 builds the fake each test seam names.
-- Three or more components serving one `SC-NN` step get a `### Sequence — SC-NN step N` subsection: one line per step naming caller, callee, the call, what may fail, and which claim is held, with its own trace per failure path — `Dispatcher → WorkerClient  run(job_id, payload)  may fail: timeout; lease held to report`.
+- Three or more components serving one `SC-NN` step get a `## Sequence — SC-NN step N` section in `plan/architecture/coverage/sc-NN/sc-NN.md`: a numbered list, one item per step naming caller, callee, the call, what may fail, and which claim is held, with its own trace per failure path — `1. Dispatcher → WorkerClient  run(job_id, payload)  may fail: timeout; lease held to report`.
+- A component standing where an actor stands — a test client, a simulator, a load generator — has its document, `Serves:`, and Test seam; its `Depends: →` names the `## Interfaces` rows it exercises, no component names it in `←`, it holds no budget share, and no Coverage `Components` cell names it — its checks fill the `Check` column.
 
 ## Data
 
@@ -130,32 +183,34 @@ One `B-NN` row per number the system holds to.
 
 - Every row carries a number, a unit, the condition it holds under, and a command that measures it.
 - An undetermined number is `(OPEN-NN)` with a provisional value and a `[measure]` item in `plan/README.md`; the cell is never blank.
-- Shares sum to the row's number, or the row names the one component holding it whole; a component section cites `B-NN` and never copies the number.
+- Shares sum to the row's number, or the row names the one component holding it whole; a component section cites `B-NN` and never copies the number. A measuring component is the `Measurement` command, never a share.
 
 ## Coverage
 
-Every `SC-NN` step from `plan/OVERVIEW.md`, failure flows included, against the components serving it.
+Every `SC-NN` step from `plan/OVERVIEW.md`, failure flows included, against the components serving it and the check observing it.
 
 ```
-| Scenario step | Components |
-|---------------|------------|
-| SC-01 step 1 — client submits a job | Intake |
-| SC-01 step 3 — a worker runs the job | Dispatcher, WorkerClient, JobStore |
-| SC-01 failure — worker stops responding | Dispatcher |
+| Scenario step | Components | Check |
+|---------------|------------|-------|
+| SC-01 step 1 — client submits a job | Intake | `submit_roundtrip` |
+| SC-01 step 3 — a worker runs the job | Dispatcher, WorkerClient, JobStore | `job_runs` |
+| SC-01 failure — worker stops responding | Dispatcher | — |
 ```
 
 - A step no component serves is a missing component; a component no step reaches is scope creep or a missing scenario. One of the two changes — never the table alone.
+- `Check` names the acceptance check that observes the step from outside — the test name or command an `R-NN` acceptance cites; `—` marks a step no check observes, a test gap `/init-phases` fills.
 
 ## Checks
 
-1. Every `### <Name>` carries responsibility, path, `Serves`, failure behavior, both dependency directions, and a test seam with a fake.
+1. Every element document carries responsibility, path, `Serves`, failure behavior, both dependency directions, and a test seam with a fake, each under the heading § Form fixes.
 2. Every operation carries `requires:`, `ensures:`, and its errors; every quantity parameter carries a unit and a range.
-3. Every component named in a dependency, an interface owner, a budget owner, or a coverage row has its own section, spelled identically; the `→` edges form no cycle.
+3. Every component named in a dependency, an interface owner, a budget owner, or a coverage row has its own document, spelled identically, and every routing row links to an existing document titled with that name; the `→` edges form no cycle.
 4. Every rule names no component, carries a Level and a check, and carries `Unless:` or `Default:` at `SHOULD` or `MAY`.
 5. Every `B-NN` carries number, unit, condition, command, bound `R-NN`, and owner; a provisional number carries `(OPEN-NN)`.
 6. Every entity in an operation signature that crosses a boundary or persists has a `## Data` row with an owner.
-7. Every `SC-NN` step has a coverage row, and every component appears in at least one.
-8. `rg 'OPEN-' plan/ARCHITECTURE.md` finds every marker `plan/README.md` lists.
+7. Every `SC-NN` step has a coverage row, and every component but an actor-side one appears in at least one.
+8. `rg 'OPEN-' plan/architecture/` finds every marker `plan/README.md` lists.
+9. No element document exceeds 120 lines, no section 60, no block 20, no table cell holds a paragraph, and `plan-check.py plan/` reports every check `PASS`, `form` included.
 
 ## Common failures
 
