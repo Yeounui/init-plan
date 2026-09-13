@@ -123,6 +123,8 @@ ${JSON.stringify(sweeps, null, 1)}
 
 ${CONVENTIONS}
 
+OUTPUT SIZE (hard limit — a larger structured output fails to parse and is discarded, costing the whole design pass): the structured output stays under 60 KB in total, roughly 6 KB per item. 'change' is an ordered list of per-file edit instructions; paste code only for what a writer could not derive on its own — a signature, a literal table, a message shape, a regex, a skip-line wording — never a whole file body. sweep_adjudication, extra_sites and callers: one clause of reason each. evidence_verified: file:line and a few words, not excerpts.
+
 Procedure, in this order:
 1. Re-verify every primary site (Touches) and every sweep site at HEAD today (Read). A file Touches creates must be absent — say so. Record drift from the plan in evidence_verified.
 2. Adjudicate every sweep site: edit (same change, do it here), no-change (say exactly why it is not the same pattern or already conforms), flip-test, update-doc. A "no-change" without a concrete reason is not allowed. Add sites you find yourself to extra_sites. Run your own \`git grep -n\` for every identifier/literal you will change (and \`codegraph explore "<symbol>"\` when the project has codegraph) for every symbol whose signature or behaviour changes; list callers.

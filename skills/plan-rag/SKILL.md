@@ -89,8 +89,11 @@ omits target content unless `include_content=true`. Relation types are
 Use the proposal and apply tools only when status reports the default `plan/`
 root:
 
-1. Propose a precise change, using `replace_string` for a unique target or
-   `replace_lines` with 1-based lines and an exact old string.
+1. Propose a precise change. Each entry of `changes` is
+   `{"change_type": <canonical type>, "path": "plan/<file>.md", "mode": "replace_string", "old_string": "...", "new_string": "..."}`;
+   `mode` `replace_lines` adds 1-based `start_line`/`end_line` beside the exact `old_string`, and the default
+   `mode` (`replace_file`) needs `content`. One entry per file per proposal — a second entry for the same file is
+   rejected as a duplicate target, so fold a file's edits into one `old_string` or propose again after applying.
 2. Inspect the unified diff.
 3. Apply the returned token in a separate call.
 4. Use full-file replacement only for substantial rewrites.

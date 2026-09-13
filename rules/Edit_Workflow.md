@@ -104,7 +104,7 @@ A closed ID remains findable in `plan/DECISIONS.md`.
 - `snippets/`: templates or reference code copied into real code later
 - `src/` or `app/`: product/project source code
 - `tests/`: tests
-- `.claude/`: project harness (skills, agents, rules, hooks in `settings.json`); inventoried in the first phase of `plan/PHASES.md`
+- `.claude/`: project harness (skills, agents, rules, `check.sh`); inventoried in the first phase of `plan/PHASES.md`
 - `plan/`: plans, process, decisions, review notes
 - `docs/`: human-facing documents; they cite `plan/` sections instead of restating them
 

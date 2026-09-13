@@ -37,14 +37,12 @@ Read `plan/README.md` directly. N is the argument, else the phase the `Next:` li
 - `$RP/phase-N-spec.json` exists and `git log` has no `Phase: N` commit — continue at Step 3.
 - `.claude/check.sh` absent — copy `$PLUGIN/snippets/check.sh` there, fill its command arrays
   from `get_plan_section(source_file="plan/architecture/ARCHITECTURE.md", heading_contains="Toolchain")`,
-  `chmod +x`, run it once, and add the Stop hook to `.claude/settings.json`:
+  `chmod +x`, and run it once.
+  There is no Stop hook: the main model runs `./.claude/check.sh` itself whenever a gate result is needed (Step 4 when `full_suite_ran` is false, after every fix in Step 5, before Step 6). `.claude/check.sh` is a Phase 1 harness item.
 
-  ```json
-  {"hooks": {"Stop": [{"hooks": [{"type": "command",
-    "command": "[ \"$CLAUDE_CODE_CHILD_SESSION\" = 1 ] && exit 0; git diff --name-only | grep -qvE '^plan/|\\.md$' && ./.claude/check.sh 2>&1 | tail -40"}]}]}}
-  ```
-
-  Both are Phase 1 harness items.
+- The Workflow tool refuses a `scriptPath` that resolves outside the project (`.claude/skills` is often a
+  symlink into a template checkout): `cp -L $PLUGIN/skills/run-phase/scripts/phase-{design,impl,review}.js $RP/`
+  once per phase and launch every workflow from `$RP/`. Re-copy after a Step 7 patch.
 
 Record `PRE=$(git rev-parse HEAD)` and `git status --short` — every listed path is a
 `forbiddenFiles` entry (uncommitted owner work; never planned, edited, or staged).
@@ -81,7 +79,9 @@ Workflow({scriptPath: "$PLUGIN/skills/run-phase/scripts/phase-design.js",
   args: {root, pluginRoot: "$PLUGIN", phaseNo: N, argsFile: "$RP/phase-N-args.json", items, forbiddenFiles, notes}})
 ```
 
-Save the result to `$RP/phase-N-design.json` and its `spec` to `$RP/phase-N-spec.json`. Read:
+The task's `.output` file elides long strings, so rebuild the result from the journal the completion notice
+names: `python3 $PLUGIN/skills/run-phase/scripts/collect-workflow-result.py <transcript dir>/journal.jsonl design
+$RP/phase-N-design.json` (it also writes `$RP/phase-N-spec.json`). Read:
 
 - `verdict` per item: `deferred` names a forbidden file — the owner commits or discards it
   first; `no-fix` cites the acceptance criterion HEAD already meets.
@@ -91,7 +91,10 @@ Save the result to `$RP/phase-N-design.json` and its `spec` to `$RP/phase-N-spec
   design-changing answer reruns the Design phase.
 - `gaps`: a trivial gap (one more site with the same edit) is added to the spec JSON directly;
   a structural gap reruns the Design phase with the gap in `notes`.
-- `est_lines_total` above ~400: keep the design, run Step 3 once per group of clusters.
+- `est_lines_total` above ~400: keep the design. Step 3 runs in `spec.commits` order, and the only reason to
+  split it into groups is a cluster whose writers need another cluster's files on disk (a rename that changes the
+  names they call, a generated header, a config macro); file-disjoint clusters with no such dependency go in ONE
+  invocation whatever their line count — the gate runs once either way.
 
 `design-only` given — report the spec summary and stop; `Next:` stays on Phase N.
 
@@ -105,8 +108,11 @@ Workflow({scriptPath: "$PLUGIN/skills/run-phase/scripts/phase-impl.js",
          selectiveTestCmd: spec.commands.selectiveTestCmd, trailers: "<Co-Authored-By line>\n<Claude-Session line>", notes}})
 ```
 
-Save the result to `$RP/phase-N-impl.json`. The trailers are this session's commit
-attribution lines, verbatim.
+Save the result with `collect-workflow-result.py <journal> impl $RP/phase-N-impl.json` (`-g<k>` suffix per
+group). The trailers are this session's commit attribution lines, verbatim. A group run passes only that group's
+`writers` and `commits`, its own `logPath`, and a `notes` line naming the groups already committed so writers read
+the live tree rather than the spec's pre-change evidence; every `plan/` edit made since `PRE` (closed `OPEN-NN`
+lines, `DEC-NN` entries) joins `forbiddenFiles`.
 
 ## Step 4 — Verify
 

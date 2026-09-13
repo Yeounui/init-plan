@@ -76,12 +76,10 @@ Each item names its purpose in one line and the retrieved fact that needs it.
 - Fakes and simulators: one per component test seam that names a substitute, built where
   the component's section says it stands in.
 - `.claude/skills/<name>/SKILL.md`: a repeated multi-step procedure with project commands.
-- `.claude/rules/<name>.md`: conventions for one language or layer, `paths:`-gated.
-- `.claude/settings.json` hooks: a check that runs after every edit or before every
-  stop — format, lint, or a fast test subset.
+- `CLAUDE.md` convention sections (or `.claude/rules/<name>.md` when `paths:`-gating is wanted): conventions for one language or layer.
 - `.claude/check.sh`: the single build+test gate, always a Phase 1 item — configure when
   needed, build, test, last line `OK: build + tests passed`. `/run-phase` runs it once per
-  phase, and its Stop hook in `.claude/settings.json` runs it when source files are dirty.
+  phase, and the main model runs it directly whenever a gate result is needed (no Stop hook).
   The template is this plugin's `snippets/check.sh`, filled from the toolchain section.
 - `.claude/agents/<name>.md`: only for a repeated task needing isolated context.
 - Every wrapped command comes from the toolchain section or `plan/USER.md`; a wrapper
