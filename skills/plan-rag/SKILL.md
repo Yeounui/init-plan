@@ -16,7 +16,7 @@ Daemon, configuration, and CLI details are in the Plan RAG `README.md`.
 For a first-time project, do not manually create a virtual environment, `.env`,
 or rule files. Read `plan-rag/scripts/setup-plan-rag.sh --help`, then run that
 one script with the project's root and the user's already-downloaded BGE-M3
-model directory. If the model directory or `uv` is unavailable, direct the user
+model directory. If the model directory or `pixi` is unavailable, direct the user
 to this plugin's root `README.md`; do not guess a local path or download the
 model without the user's direction.
 

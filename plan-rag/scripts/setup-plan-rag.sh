@@ -26,7 +26,7 @@ done
 [[ -n "$MODEL_PATH" ]] || { usage >&2; exit 2; }
 [[ -d "$PROJECT_ROOT" ]] || { printf 'plan-rag setup: project root does not exist: %s\n' "$PROJECT_ROOT" >&2; exit 2; }
 [[ -d "$MODEL_PATH" ]] || { printf 'plan-rag setup: BGE-M3 model directory does not exist: %s\n' "$MODEL_PATH" >&2; exit 2; }
-command -v uv >/dev/null 2>&1 || { printf 'plan-rag setup: install uv first; see README.md.\n' >&2; exit 1; }
+command -v pixi >/dev/null 2>&1 || { printf 'plan-rag setup: install pixi first; see README.md.\n' >&2; exit 1; }
 
 SCRIPT_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_REPO/.." && pwd)"
@@ -47,10 +47,6 @@ append_if_missing() {
   grep -q "^${key}=" "$ENV_FILE" 2>/dev/null || printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
 }
 
-printf 'plan-rag setup: installing locked runtime dependencies\n'
-uv sync --frozen --inexact --no-dev --no-install-package torch --project "$SCRIPT_REPO"
-UV_TORCH_BACKEND=auto uv pip install --directory "$SCRIPT_REPO" --python "$SCRIPT_REPO/.venv/bin/python" torch
-
 umask 077
 touch "$ENV_FILE"
 append_if_missing PLAN_RAG_EMBEDDING_BACKEND flag_embedding
@@ -69,5 +65,6 @@ for rule in "$PLUGIN_ROOT"/rules/*.md; do
   [[ -e "$destination" ]] || cp "$rule" "$destination"
 done
 
-printf 'plan-rag setup: verifying configuration\n'
+# plan-rag.sh builds the locked pixi environment on its first run.
+printf 'plan-rag setup: installing locked runtime dependencies and verifying configuration\n'
 PLAN_RAG_PROJECT_ROOT="$PROJECT_ROOT" "$SCRIPT_REPO/scripts/plan-rag.sh" status

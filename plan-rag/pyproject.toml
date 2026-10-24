@@ -13,7 +13,7 @@ dependencies = [
     "pydantic>=2",
     "chromadb>=1.5.9",
     "watchdog",
-    "FlagEmbedding",
+    "FlagEmbedding>=1.4.2",
     "torch",
 ]
 
@@ -25,22 +25,43 @@ dev = [
 [project.scripts]
 plan-rag = "plan_rag.cli:main"
 
-[tool.uv]
-# Build .venv on a uv-managed CPython, so the repo does not depend on a
-# system or conda interpreter being present.
-python-preference = "managed"
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = [
+    "linux-64",
+    "osx-arm64",
+    { name = "linux-64-cuda", platform = "linux-64", cuda = "12" },
+]
 
-# The lock stays reproducible for everything except torch: pointing it at the
-# CPU index keeps pinned CUDA wheels out of uv.lock. torch itself is skipped
-# during `uv sync` and installed with `--torch-backend=auto`, which reads the
-# local driver and fetches the CUDA build that matches it.
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
+[tool.pixi.dependencies]
+python = "3.13.*"
+# conda-forge pytorch pulls in fsspec, and every PyPI datasets release (needed by
+# FlagEmbedding) caps fsspec below the newest conda-forge build; without this cap
+# the solver silently falls back to FlagEmbedding 1.2 and a broken datasets 1.x.
+fsspec = "<=2026.7.0"
 
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+[tool.pixi.pypi-dependencies]
+plan-rag = { path = ".", editable = true }
+
+# torch comes from conda-forge, not PyPI, and satisfies the `torch` requirement
+# above. pixi hardlinks conda packages from one shared cache, so every pixi
+# project that pins this same pytorch build shares a single copy on disk; the
+# heavy libtorch and CUDA packages do not depend on the Python version, so even
+# projects on another Python share them. Keep this pin in step with the other
+# projects that use torch.
+[tool.pixi.feature.cuda]
+platforms = ["linux-64-cuda"]
+dependencies = { pytorch = { version = "==2.14.1", build = "cuda*" } }
+
+[tool.pixi.feature.cpu]
+platforms = ["linux-64", "osx-arm64"]
+dependencies = { pytorch = { version = "==2.14.1", build = "cpu*" } }
+
+# plan-rag.sh uses `default` when an NVIDIA driver is present, `cpu` otherwise.
+[tool.pixi.environments]
+default = ["cuda"]
+cpu = ["cpu"]
+dev = ["cuda", "dev"]
 
 [tool.setuptools]
 packages = ["plan_rag"]

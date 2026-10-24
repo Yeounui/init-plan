@@ -22,8 +22,9 @@ same normalized root. Keep stdout clean: the
 proxy writes MCP JSON-RPC only, while daemon diagnostics are written to
 `.plan-rag/daemon.log` (and daemon stderr).
 
-The wrapper runs the package from its own `.venv` at this repo's root, built
-by `uv` from the committed `uv.lock`. It creates that venv on first use and
+The wrapper runs the package from its own pixi environment at this repo's root
+(`.pixi/envs/default`, or `.pixi/envs/cpu` without an NVIDIA driver), built from
+the committed `pixi.lock`. It creates that environment on first use and
 never resolves dependencies at runtime. It sources the consumer project's
 `.env` for Plan RAG settings, but takes no interpreter or environment from it.
 
@@ -209,25 +210,26 @@ neighbors per heading. Tune the cap with
 
 ## Dependencies
 
-Everything except torch is pinned in `uv.lock` and installed into `.venv` at
-this repo's root; torch is installed separately with `--torch-backend=auto`,
-which resolves against the local driver instead of a version pinned in the
-lock:
+Everything, torch included, is pinned in `pixi.lock` and installed into
+`.pixi/envs/<environment>` at this repo's root. torch is the conda-forge
+pytorch build, not the PyPI wheel: pixi hardlinks it from its shared package
+cache, so every pixi project pinning the same build stores it once. Keep the
+`pytorch` pin in `pyproject.toml` in step with those projects.
 
 ```bash
-uv sync --frozen --inexact --no-install-package torch          # runtime
-UV_TORCH_BACKEND=auto uv pip install --python .venv/bin/python torch
-uv sync --frozen --inexact --group dev --no-install-package torch   # plus pytest
+pixi install --frozen -e default   # runtime, CUDA 12 torch
+pixi install --frozen -e cpu       # runtime, CPU torch (no NVIDIA driver)
+pixi run --frozen -e dev pytest    # tests
 ```
 
-`scripts/plan-rag.sh` does the first sync and torch install itself if `.venv`
-is missing, but an MCP host will usually time out waiting for it — run the
-commands once after installing. When the daemon cannot start at all, the
-proxy still serves MCP with the real tool schemas and every call returns the
-reason, read out of `.plan-rag/daemon.log`: the missing package plus the `uv
-sync` command, or the configuration error verbatim. Chroma is used with
-caller-supplied embeddings only; its default ONNX embedding stack is never
-loaded.
+`scripts/plan-rag.sh` installs `default` when `nvidia-smi` is on `PATH` and
+`cpu` otherwise, the first time neither exists, but an MCP host will usually
+time out waiting for it — run the install once after installing the plugin.
+When the daemon cannot start at all, the proxy still serves MCP with the real
+tool schemas and every call returns the reason, read out of
+`.plan-rag/daemon.log`: the missing package plus the `pixi install` command, or
+the configuration error verbatim. Chroma is used with caller-supplied
+embeddings only; its default ONNX embedding stack is never loaded.
 
 ## BGE-M3 Model Setup
 

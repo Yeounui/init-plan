@@ -188,7 +188,7 @@ class FlagEmbeddingBgeM3Client:
                 raise EmbeddingError(
                     "FlagEmbedding backend requested but FlagEmbedding is not "
                     "installed; rebuild the Plan RAG environment with: "
-                    "uv sync --frozen"
+                    "pixi install --frozen"
                 ) from error
             self._model_class = BGEM3FlagModel
         return self._model_class(

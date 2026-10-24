@@ -410,7 +410,7 @@ def _startup_guidance(paths: DaemonPaths) -> str:
         repo = Path(__file__).resolve().parents[1]
         return (
             f". The Plan RAG environment is missing {missing[-1]!r}. Rebuild it "
-            f"with: uv sync --frozen --project {repo}"
+            f"with: pixi install --frozen --manifest-path {repo} -e {Path(sys.prefix).name}"
         )
     known = _KNOWN_ERROR.findall(tail)
     if known:

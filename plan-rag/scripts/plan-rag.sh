@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Repo that holds the plan_rag package and its uv project (this script lives in
-# <repo>/scripts/; the package is a flat plan_rag/ at the repo root).
+# Repo that holds the plan_rag package and its pixi workspace (this script lives
+# in <repo>/scripts/; the package is a flat plan_rag/ at the repo root).
 SCRIPT_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENV_PYTHON="${SCRIPT_REPO}/.venv/bin/python"
+
+# An installed environment wins, so the choice made on first install sticks even
+# when an MCP host launches this with a PATH that lacks nvidia-smi.
+if [[ -x "${SCRIPT_REPO}/.pixi/envs/default/bin/python" ]]; then
+  PIXI_ENVIRONMENT=default
+elif [[ -x "${SCRIPT_REPO}/.pixi/envs/cpu/bin/python" ]]; then
+  PIXI_ENVIRONMENT=cpu
+elif command -v nvidia-smi >/dev/null 2>&1; then
+  PIXI_ENVIRONMENT=default
+else
+  PIXI_ENVIRONMENT=cpu
+fi
+ENV_PYTHON="${SCRIPT_REPO}/.pixi/envs/${PIXI_ENVIRONMENT}/bin/python"
 
 # The consuming project is the explicit project root or the MCP launch cwd. Its
 # plan/ docs and .plan-rag state are rooted here, and its .env carries runtime
@@ -33,24 +45,23 @@ if [[ -f "${CONSUMER_ROOT}/.env" ]]; then
   done < "${CONSUMER_ROOT}/.env"
 fi
 
-# Plan RAG runs from its own uv-managed .venv inside this repo — no ambient
-# interpreter, no shared environment to keep in sync. Build it on first use;
-# everything except torch is pinned by the committed uv.lock. torch is
-# resolved at install time against the local driver instead. Progress goes to
-# stderr: stdout carries MCP JSON-RPC only.
-if [[ ! -x "${VENV_PYTHON}" ]]; then
-  if ! command -v uv >/dev/null 2>&1; then
-    printf 'plan-rag: uv is required and was not found on PATH.\n' >&2
-    printf 'plan-rag: install it (https://docs.astral.sh/uv/) then run: uv sync --frozen --inexact --no-install-package torch --project %s && UV_TORCH_BACKEND=auto uv pip install --directory %s --python %s torch\n' "${SCRIPT_REPO}" "${SCRIPT_REPO}" "${VENV_PYTHON}" >&2
+# Plan RAG runs from its own pixi environment inside this repo — no ambient
+# interpreter. Build it on first use from the committed pixi.lock; torch is a
+# conda-forge package, hardlinked from pixi's shared cache so it is stored once
+# for every project pinning the same build. Progress goes to stderr: stdout
+# carries MCP JSON-RPC only.
+if [[ ! -x "${ENV_PYTHON}" ]]; then
+  if ! command -v pixi >/dev/null 2>&1; then
+    printf 'plan-rag: pixi is required and was not found on PATH.\n' >&2
+    printf 'plan-rag: install it (https://pixi.sh) then run: pixi install --frozen --manifest-path %s -e %s\n' "${SCRIPT_REPO}" "${PIXI_ENVIRONMENT}" >&2
     exit 1
   fi
-  printf 'plan-rag: creating %s/.venv from uv.lock (first run, this takes a while)\n' "${SCRIPT_REPO}" >&2
-  uv sync --frozen --inexact --no-install-package torch --project "${SCRIPT_REPO}" >&2
-  UV_TORCH_BACKEND=auto uv pip install --directory "${SCRIPT_REPO}" --python "${VENV_PYTHON}" torch >&2
+  printf 'plan-rag: creating the %s environment from pixi.lock (first run, this takes a while)\n' "${PIXI_ENVIRONMENT}" >&2
+  pixi install --frozen --manifest-path "${SCRIPT_REPO}" -e "${PIXI_ENVIRONMENT}" >&2
 fi
 
-# Drop any inherited PYTHONPATH/PYTHONHOME: plan_rag lives in the venv, and an
-# ambient path (ROS, conda, another project) would otherwise shadow its
+# Drop any inherited PYTHONPATH/PYTHONHOME: plan_rag lives in the environment,
+# and an ambient path (ROS, conda, another project) would otherwise shadow its
 # dependencies.
-exec env -u PYTHONPATH -u PYTHONHOME "${VENV_PYTHON}" \
+exec env -u PYTHONPATH -u PYTHONHOME "${ENV_PYTHON}" \
   -m plan_rag.cli --project-root "${CONSUMER_ROOT}" "$@"

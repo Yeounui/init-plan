@@ -63,10 +63,10 @@ of `init-design`, but nothing else.
 
 | Need | Why | Check |
 |------|-----|-------|
-| [`uv`](https://docs.astral.sh/uv/getting-started/installation/) | Builds Plan RAG's `.venv` — everything from the committed `uv.lock` except torch, which is matched to the local driver. It also fetches its own CPython, so no system or conda Python is required. | `uv --version` |
+| [`pixi`](https://pixi.sh) | Builds Plan RAG's environment from the committed `pixi.lock`, including its own Python and a conda-forge torch, so no system or conda Python is required. | `pixi --version` |
 | Linux or macOS, bash | `plan-rag.sh` is a bash wrapper | `bash --version` |
-| ~10 GB disk | `.venv` is ~7.5 GB (PyTorch and its CUDA libraries dominate); the BGE-M3 weights add ~2.2 GB, plus the index | — |
-| NVIDIA GPU *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own. torch is installed with `--torch-backend=auto`, which inspects the driver and fetches the matching CUDA build, falling back to CPU when there is no usable GPU. | `nvidia-smi` |
+| ~13 GB disk | The first pixi project with CUDA torch puts ~10 GB in pixi's package cache (libtorch and its CUDA libraries dominate). The environment itself adds well under 1 GB because it hardlinks from that cache, and later projects pinning the same pytorch build add almost nothing. The BGE-M3 weights add ~2.2 GB, plus the index | — |
+| NVIDIA GPU *(optional)* | Embedding runs on `cuda:0` when one is free and falls back to CPU on its own. `plan-rag.sh` installs the `default` environment (CUDA 12 torch) when `nvidia-smi` is on `PATH` and the `cpu` environment otherwise. | `nvidia-smi` |
 
 Nothing else is shared with the host: Plan RAG never touches an ambient
 interpreter, and it resolves no dependencies at runtime.
@@ -117,8 +117,8 @@ In Codex `plan-rag` is currently only usable. `init-design`, `init-phases`, and
 ## Setup
 
 After the embedding model is available locally, one command configures each
-consumer project. It installs the locked runtime (without test dependencies)
-and a driver-matched torch, sets the model path in `.env`, ignores generated
+consumer project. It installs the locked runtime (without test dependencies,
+with CUDA or CPU torch), sets the model path in `.env`, ignores generated
 state, copies missing rules, and verifies Plan RAG:
 
 ```bash
@@ -132,15 +132,14 @@ model path, and never overwrites an existing rule file.
 
 Only these prerequisites remain manual:
 
-- Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) once.
+- Install [`pixi`](https://pixi.sh) once.
 - Build the runtime once so its `hf` downloader is available, then download
-  BGE-M3 and provide its resulting directory to the setup command:
+  BGE-M3 and provide its resulting directory to the setup command (add
+  `-e cpu` to both commands on a machine without an NVIDIA GPU):
 
   ```bash
-  uv sync --frozen --no-dev --inexact --no-install-package torch --project "$PLUGIN/plan-rag"
-  UV_TORCH_BACKEND=auto uv pip install --directory "$PLUGIN/plan-rag" \
-    --python "$PLUGIN/plan-rag/.venv/bin/python" torch
-  "$PLUGIN/plan-rag/.venv/bin/hf" download BAAI/bge-m3 --local-dir ~/models/bge-m3
+  pixi install --frozen --manifest-path "$PLUGIN/plan-rag"
+  pixi run --frozen --manifest-path "$PLUGIN/plan-rag" hf download BAAI/bge-m3 --local-dir ~/models/bge-m3
   ```
 
 `PLUGIN` below is wherever the plugin landed — the path you passed to `--from`,
@@ -154,29 +153,22 @@ when the setup script cannot run.
 ### 1. Build the environment
 
 ```bash
-uv sync --frozen --inexact --no-install-package torch --project "$PLUGIN/plan-rag"
-UV_TORCH_BACKEND=auto uv pip install --directory "$PLUGIN/plan-rag" \
-  --python "$PLUGIN/plan-rag/.venv/bin/python" torch
+pixi install --frozen --manifest-path "$PLUGIN/plan-rag"           # CUDA torch
+pixi install --frozen --manifest-path "$PLUGIN/plan-rag" -e cpu    # no NVIDIA GPU
 ```
 
-That creates `$PLUGIN/plan-rag/.venv` from `uv.lock` — same versions on every
-machine, nothing resolved at install time, except torch: it is installed
-separately and resolved once against the local driver, which is the deliberate
-trade for not forcing a CUDA version. Expect ~7.5 GB, almost all of it PyTorch
-and its CUDA libraries. On a slow link uv's default parallelism starves each of
-the big CUDA wheels until they hit its 30-second per-request timeout; if either
-command fails that way, rerun it serially:
+That creates `$PLUGIN/plan-rag/.pixi/envs/default` (or `cpu`) from `pixi.lock`
+— same versions on every machine, nothing resolved at install time. torch is
+the conda-forge build, hardlinked from pixi's shared package cache: every pixi
+project that pins the same pytorch build reuses that one copy instead of
+storing another, and libtorch and the CUDA libraries are shared even with
+projects on a different Python. Expect ~10 GB in pixi's cache the first time,
+almost all of it libtorch and its CUDA libraries; the environment itself adds
+well under 1 GB. Hardlinks need the cache and the plugin on the same
+filesystem, otherwise pixi copies.
 
-```bash
-UV_CONCURRENT_DOWNLOADS=2 UV_HTTP_TIMEOUT=1800 \
-  uv sync --frozen --inexact --no-install-package torch --project "$PLUGIN/plan-rag"
-UV_CONCURRENT_DOWNLOADS=2 UV_HTTP_TIMEOUT=1800 \
-  UV_TORCH_BACKEND=auto uv pip install --directory "$PLUGIN/plan-rag" \
-  --python "$PLUGIN/plan-rag/.venv/bin/python" torch
-```
-
-`plan-rag.sh` runs this itself if `.venv` is missing, but an MCP host times out
-long before it finishes. Run it once by hand after installing.
+`plan-rag.sh` runs this itself if the environment is missing, but an MCP host
+times out long before it finishes. Run it once by hand after installing.
 
 ### 2. Embedding model
 
@@ -185,7 +177,7 @@ directory — Plan RAG downloads nothing at runtime. The `hf` CLI ships in the
 environment you just built:
 
 ```bash
-"$PLUGIN/plan-rag/.venv/bin/hf" download BAAI/bge-m3 --local-dir ~/models/bge-m3
+pixi run --frozen --manifest-path "$PLUGIN/plan-rag" hf download BAAI/bge-m3 --local-dir ~/models/bge-m3
 ```
 
 The path you pass to `--local-dir` becomes `PLAN_RAG_EMBEDDING_MODEL_PATH`.
@@ -209,7 +201,7 @@ PLAN_RAG_EMBEDDING_MODEL_PATH=/home/you/models/bge-m3
 If you skip this, the MCP server still starts and still advertises all its
 tools — calling any of them returns the reason instead of failing silently, so
 Claude can tell you what to set. The same holds for an incomplete environment:
-the error names the missing package and the `uv sync` command that installs it.
+the error names the missing package and the `pixi install` command that installs it.
 
 Add `.plan-rag/` to the project's `.gitignore`; it is a rebuildable index.
 
@@ -260,7 +252,7 @@ agents/     sweeper — the Haiku blast-radius sweeper run-phase spawns
 rules/      Edit_Workflow.md (canonical placements), Doc_Authoring.md
 snippets/   intent-template.md — what the user writes before /init-design;
             check.sh — template for the project's single build+test gate
-plan-rag/   the MCP server: Python package, uv.lock, wrapper and setup scripts
+plan-rag/   the MCP server: Python package, pixi.lock, wrapper and setup scripts
 .mcp.json   registers plan-rag for Claude Code
 ```
 
