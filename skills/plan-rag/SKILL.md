@@ -80,6 +80,9 @@ get_related_plan_chunks(file="plan/PHASES.md", line=42, relation_type="same_head
 `search_plan` filters on `file` and includes content when `top_k <= 3`;
 `get_plan_section` includes content when `heading_contains` is given. Pass
 `include_content` explicitly to override either default.
+`get_plan_section(source_file=..., include_content=true)` without
+`heading_contains` returns every chunk of the file in line order, each after its
+`file:start-end` header line — use it for whole-document reads.
 `get_related_plan_chunks` addresses its source chunk by `file` and `line` and
 omits target content unless `include_content=true`. Relation types are
 `same_heading`, `links_to_chunk`, `links_to_document`, and `similar_to`.
@@ -92,10 +95,16 @@ root:
 1. Propose a precise change. Each entry of `changes` is
    `{"change_type": <canonical type>, "path": "plan/<file>.md", "mode": "replace_string", "old_string": "...", "new_string": "..."}`;
    `mode` `replace_lines` adds 1-based `start_line`/`end_line` beside the exact `old_string`, and the default
-   `mode` (`replace_file`) needs `content`. One entry per file per proposal — a second entry for the same file is
-   rejected as a duplicate target, so fold a file's edits into one `old_string` or propose again after applying.
-2. Inspect the unified diff.
-3. Apply the returned token in a separate call.
+   `mode` (`replace_file`) needs `content`. Entries for the same file apply in listed order; `replace_lines`
+   numbers refer to the running text; order line edits bottom-up.
+   `replace_string` may use `"anchor": "| R-43 |"`: with `old_string`, it replaces that one fragment in the
+   anchored line; without `old_string`, it replaces the whole anchored line and keeps its terminator.
+   `insert_after` requires `anchor` and `new_string` and adds its text after the anchored line.
+   An anchor matches exactly one line that starts with it after leading whitespace; end it with a delimiter
+   (`| R-43 |`, not `| R-4`).
+2. For patch entries, pass `apply=true`; the response returns applied paths and the diff.
+3. For `replace_file` over existing non-empty content, inspect the returned diff and pass its token to
+   `apply_plan_change`.
 4. Use full-file replacement only for substantial rewrites.
 5. Provide explicit test, build, execution, or review evidence before adding a
    `verified` status.
@@ -104,7 +113,9 @@ root:
 The server rejects a `change_type` outside the canonical map, a change aimed
 at the wrong file, and a `goal`, `scope`, `procedure`, `phase`, or
 `architecture` change without a `decision` change in the same proposal; each
-rejection names the expected destination or the missing `decision` entry.
+rejection names the expected destination or the missing `decision` entry. An
+existing `DEC-<digits>` heading in `plan/DECISIONS.md` may be passed as
+`decision_ref` instead of a `decision` entry.
 Canonical destinations are listed in `.claude/rules/Edit_Workflow.md`.
 
 ## Report Evidence

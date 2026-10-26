@@ -32,6 +32,15 @@ DECISION_BEARING_TYPES = {"goal", "scope", "procedure", "phase", "architecture"}
 ARCHITECTURE_TREE = "plan/architecture/"
 
 
+def _canonical_destinations_hint() -> str:
+    return ", ".join(
+        f"{change_type} ({ARCHITECTURE_TREE}**.md)"
+        if change_type == "architecture"
+        else f"{change_type} ({destination})"
+        for change_type, destination in CANONICAL_DESTINATIONS.items()
+    )
+
+
 def in_architecture_tree(relative_path: str) -> bool:
     return relative_path.startswith(ARCHITECTURE_TREE) and relative_path.endswith(".md")
 STATUS_LINE_RE = re.compile(
@@ -49,6 +58,7 @@ class ProposedChange:
     mode: str = "replace_file"
     old_string: str | None = None
     new_string: str | None = None
+    anchor: str | None = None
     start_line: int | None = None
     end_line: int | None = None
 
@@ -58,6 +68,7 @@ class ProposedChange:
         content = values.get("content")
         old_string = values.get("old_string")
         new_string = values.get("new_string")
+        anchor = values.get("anchor")
         return cls(
             path=str(values["path"]),
             change_type=str(values["change_type"]),
@@ -65,6 +76,7 @@ class ProposedChange:
             mode=mode,
             old_string=str(old_string) if old_string is not None else None,
             new_string=str(new_string) if new_string is not None else None,
+            anchor=str(anchor) if anchor is not None else None,
             start_line=_optional_int(values.get("start_line")),
             end_line=_optional_int(values.get("end_line")),
         )
@@ -104,13 +116,16 @@ class PlanWorkflow:
         changes: list[ProposedChange],
         *,
         evidence: list[str] | None = None,
+        decision_ref: str | None = None,
+        apply: bool = False,
     ) -> dict[str, Any]:
         self._require_writable_canonical_root()
         if not changes:
             raise PlanWorkflowError("at least one change is required")
 
+        self._validate_change_targets(changes)
         materialized = self._materialize_changes(changes)
-        self._validate_changes(materialized, evidence or [])
+        self._validate_changes(changes, materialized, evidence or [], decision_ref)
 
         token = secrets.token_urlsafe(24)
         proposal_changes = []
@@ -143,13 +158,25 @@ class PlanWorkflow:
             "token": token,
             "created_at": datetime.now(UTC).isoformat(),
             "evidence": evidence or [],
+            "decision_ref": decision_ref,
             "changes": proposal_changes,
         }
         self._proposal_path(token).write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        return {"token": token, "diff": "\n".join(diffs), "changes": len(changes)}
+        result = {"token": token, "diff": "\n".join(diffs), "changes": len(changes)}
+        review_required = self._review_required(changes)
+        if apply and not review_required:
+            try:
+                applied = self.apply(token)
+            except Exception:
+                self._proposal_path(token).unlink(missing_ok=True)
+                raise
+            return {**applied, "diff": result["diff"], "changes": len(changes)}
+        if apply:
+            result["review_required"] = "; ".join(review_required)
+        return result
 
     def apply(self, token: str) -> dict[str, Any]:
         if self.service is None:
@@ -246,28 +273,13 @@ class PlanWorkflow:
     def _validate_changes(
         self,
         changes: list[ProposedChange],
+        materialized: list[ProposedChange],
         evidence: list[str],
+        decision_ref: str | None,
     ) -> None:
-        paths = set()
-        types = set()
+        types = {change.change_type for change in changes}
         proposed_paths = {change.path for change in changes}
-        for change in changes:
-            if change.path in paths:
-                raise PlanWorkflowError(f"duplicate target: {change.path}")
-            paths.add(change.path)
-            types.add(change.change_type)
-            expected = CANONICAL_DESTINATIONS.get(change.change_type)
-            if expected is None:
-                raise PlanWorkflowError(
-                    f"unsupported change_type: {change.change_type}"
-                )
-            if change.path != expected and not (
-                change.change_type == "architecture"
-                and in_architecture_tree(change.path)
-            ):
-                raise PlanWorkflowError(
-                    f"{change.change_type} changes belong in {expected}"
-                )
+        for change in materialized:
             target = self._target(change.path)
             original = target.read_text(encoding="utf-8") if target.exists() else ""
             content = change.content or ""
@@ -283,33 +295,86 @@ class PlanWorkflow:
             if broken:
                 raise PlanWorkflowError(broken[0]["message"])
 
-        if types & DECISION_BEARING_TYPES and "decision" not in types:
+        self._validate_decision_ref(decision_ref)
+        if (
+            types & DECISION_BEARING_TYPES
+            and "decision" not in types
+            and decision_ref is None
+        ):
             raise PlanWorkflowError(
-                "scope, procedure, or architecture changes require a DECISIONS.md change"
+                "goal, scope, procedure, phase, or architecture changes require a "
+                "DECISIONS.md change or decision_ref"
             )
+
+    def _validate_change_targets(self, changes: list[ProposedChange]) -> None:
+        for change in changes:
+            expected = CANONICAL_DESTINATIONS.get(change.change_type)
+            if expected is None:
+                raise PlanWorkflowError(
+                    f"unsupported change_type: {change.change_type}; use one of "
+                    f"{_canonical_destinations_hint()}"
+                )
+            if change.path != expected and not (
+                change.change_type == "architecture"
+                and in_architecture_tree(change.path)
+            ):
+                raise PlanWorkflowError(
+                    f"{change.change_type} changes belong in {expected}"
+                )
+            self._target(change.path)
 
     def _materialize_changes(
         self,
         changes: list[ProposedChange],
     ) -> list[ProposedChange]:
-        return [
-            ProposedChange(
+        materialized: dict[str, ProposedChange] = {}
+        for change in changes:
+            previous = materialized.get(change.path)
+            materialized[change.path] = ProposedChange(
                 path=change.path,
-                change_type=change.change_type,
-                content=self._materialize_change(change),
+                change_type=(previous or change).change_type,
+                content=self._materialize_change(
+                    change, previous.content if previous is not None else None
+                ),
             )
-            for change in changes
-        ]
+        return list(materialized.values())
 
-    def _materialize_change(self, change: ProposedChange) -> str:
+    def _materialize_change(
+        self, change: ProposedChange, original: str | None = None
+    ) -> str:
         target = self._target(change.path)
-        original = target.read_text(encoding="utf-8") if target.exists() else ""
+        if original is None:
+            original = target.read_text(encoding="utf-8") if target.exists() else ""
         mode = change.mode or "replace_file"
+        if change.anchor is not None and mode not in {"replace_string", "insert_after"}:
+            raise PlanWorkflowError(f"anchor is unsupported for {mode}")
         if mode == "replace_file":
             if change.content is None:
                 raise PlanWorkflowError("replace_file changes require content")
             return change.content
         if mode == "replace_string":
+            if change.anchor is not None:
+                if change.new_string is None:
+                    raise PlanWorkflowError(
+                        "anchored replace_string changes require new_string"
+                    )
+                lines = _newline_lines(original)
+                index = self._anchored_line(change, lines)
+                line, terminator = _line_text_and_terminator(lines[index])
+                if change.old_string is None:
+                    lines[index] = change.new_string.removesuffix("\n") + terminator
+                else:
+                    count = line.count(change.old_string)
+                    if count != 1:
+                        raise PlanWorkflowError(
+                            "anchored replace_string expected one match in "
+                            f"{change.path}, found {count}"
+                        )
+                    lines[index] = (
+                        line.replace(change.old_string, change.new_string, 1)
+                        + terminator
+                    )
+                return "".join(lines)
             if change.old_string is None or change.new_string is None:
                 raise PlanWorkflowError(
                     "replace_string changes require old_string and new_string"
@@ -320,6 +385,24 @@ class PlanWorkflow:
                     f"replace_string expected one match in {change.path}, found {count}"
                 )
             return original.replace(change.old_string, change.new_string, 1)
+        if mode == "insert_after":
+            if change.anchor is None or change.new_string is None:
+                raise PlanWorkflowError(
+                    "insert_after changes require anchor and new_string"
+                )
+            lines = _newline_lines(original)
+            index = self._anchored_line(change, lines)
+            line, terminator = _line_text_and_terminator(lines[index])
+            if index == len(lines) - 1 and not terminator:
+                lines[index] = line + "\n"
+            inserted = (
+                change.new_string
+                if change.new_string.endswith("\n")
+                else change.new_string + "\n"
+            )
+            return "".join(lines[: index + 1]) + inserted + "".join(
+                lines[index + 1 :]
+            )
         if mode == "replace_lines":
             if (
                 change.start_line is None
@@ -350,6 +433,54 @@ class PlanWorkflow:
                 + "".join(lines[change.end_line :])
             )
         raise PlanWorkflowError(f"unsupported change mode: {mode}")
+
+    def _anchored_line(self, change: ProposedChange, lines: list[str]) -> int:
+        anchor = change.anchor.lstrip() if change.anchor is not None else ""
+        if not anchor:
+            raise PlanWorkflowError("anchor must not be empty")
+        matches = [
+            index
+            for index, line in enumerate(lines)
+            if line.lstrip().startswith(anchor)
+        ]
+        if len(matches) != 1:
+            raise PlanWorkflowError(
+                f"anchor expected one match in {change.path} for {change.anchor!r}, "
+                f"found {len(matches)}"
+            )
+        return matches[0]
+
+    def _review_required(self, changes: list[ProposedChange]) -> list[str]:
+        paths: list[str] = []
+        seen: set[str] = set()
+        for change in changes:
+            if (change.mode or "replace_file") != "replace_file":
+                continue
+            target = self._target(change.path)
+            if (
+                change.path not in seen
+                and target.exists()
+                and target.read_text(encoding="utf-8")
+            ):
+                seen.add(change.path)
+                paths.append(
+                    f"{change.path}: replace_file would overwrite existing non-empty content"
+                )
+        return paths
+
+    def _validate_decision_ref(self, decision_ref: str | None) -> None:
+        if decision_ref is None:
+            return
+        if not isinstance(decision_ref, str) or not re.fullmatch(
+            r"DEC-\d+", decision_ref
+        ):
+            raise PlanWorkflowError(f"invalid decision_ref: {decision_ref!r}")
+        decisions = self.project_root / CANONICAL_DESTINATIONS["decision"]
+        content = decisions.read_text(encoding="utf-8") if decisions.exists() else ""
+        if not re.search(
+            rf"^#{{1,6}}[ \t]+{re.escape(decision_ref)}\b", content, re.MULTILINE
+        ):
+            raise PlanWorkflowError(f"unknown decision_ref: {decision_ref}")
 
     def _validate_statuses(self, path: str, content: str) -> None:
         for status in self._status_values(content):
@@ -421,6 +552,15 @@ class PlanWorkflow:
     @staticmethod
     def _hash(content: str) -> str:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _line_text_and_terminator(line: str) -> tuple[str, str]:
+    return (line[:-1], "\n") if line.endswith("\n") else (line, "")
+
+
+def _newline_lines(text: str) -> list[str]:
+    lines = re.split(r"(?<=\n)", text)
+    return lines[:-1] if lines[-1] == "" else lines
 
 
 def _optional_int(value: object) -> int | None:

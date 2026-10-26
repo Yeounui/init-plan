@@ -139,6 +139,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = workflow.propose(
                 [ProposedChange.from_mapping(change) for change in payload["changes"]],
                 evidence=payload.get("evidence"),
+                decision_ref=payload.get("decision_ref"),
+                apply=bool(payload.get("apply", False)),
             )
         elif arguments.command == "apply":
             output = workflow.apply(arguments.token)

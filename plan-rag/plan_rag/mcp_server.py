@@ -26,8 +26,10 @@ def create_mcp_server(
         "plan-rag",
         instructions=(
             "Retrieve canonical plan evidence before implementation. "
-            "Plan writes require propose_plan_change followed by a separate "
-            "apply_plan_change call."
+            "Plan writes go through propose_plan_change; patch edits may pass "
+            "apply=true to write in the same call. "
+            "A replace_file over an existing file returns a token for "
+            "apply_plan_change after reviewing its diff."
         ),
     )
 
@@ -156,11 +158,15 @@ def create_mcp_server(
     def propose_plan_change(
         changes: list[dict[str, Any]],
         evidence: list[str] | None = None,
+        decision_ref: str | None = None,
+        apply: bool = False,
     ) -> dict[str, Any]:
-        """Validate plan edits and return a diff plus approval token."""
+        """Return the diff plus a token or applied paths for validated plan edits."""
         with _ready_operation(service, coordinator):
             parsed = [ProposedChange.from_mapping(change) for change in changes]
-            return workflow.propose(parsed, evidence=evidence)
+            return workflow.propose(
+                parsed, evidence=evidence, decision_ref=decision_ref, apply=apply
+            )
 
     @mcp.tool()
     def apply_plan_change(token: str) -> dict[str, Any]:

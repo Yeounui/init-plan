@@ -108,30 +108,44 @@ For small edits, use patch changes so the caller only sends the changed text:
 
 ```json
 {
+  "decision_ref": "DEC-12",
+  "apply": true,
   "changes": [
     {
       "mode": "replace_string",
-      "path": "plan/README.md",
-      "change_type": "status",
-      "old_string": "Status: draft written",
-      "new_string": "Status: generated"
+      "path": "plan/OVERVIEW.md",
+      "change_type": "scope",
+      "anchor": "| R-43 |",
+      "old_string": "draft written",
+      "new_string": "generated"
+    },
+    {
+      "path": "plan/PHASES.md",
+      "change_type": "phase",
+      "mode": "replace_string",
+      "old_string": "Owner: TBD",
+      "new_string": "Owner: team"
     },
     {
       "mode": "replace_lines",
       "path": "plan/PHASES.md",
       "change_type": "phase",
       "start_line": 42,
-      "end_line": 45,
-      "old_string": "old block\n",
-      "content": "new block\n"
+      "end_line": 42,
+      "old_string": "old line\n",
+      "content": "new line\n"
     }
   ],
   "evidence": []
 }
 ```
 
-Patch proposals are materialized into full-file diffs for review before
-`apply`, and stale files are still rejected by hash.
+Patch entries with `apply: true` are materialized and written in one call.
+`replace_file` over existing non-empty content returns a diff and token for
+review; entries for one file apply in listed order. Stale files are rejected by
+hash.
+An anchor matches exactly one line that starts with it after leading whitespace;
+end it with a delimiter (`| R-43 |`, not `| R-4`).
 
 MCP read tools return plain text, not JSON. Each chunk is one tab-separated
 line: `source_file:start-end`, the ` > `-joined heading path, and a third tag
@@ -201,8 +215,9 @@ read-only and does not load or move the model.
 Plan writes are available only for the default canonical `plan/` layout through
 MCP or CLI workflow code. A custom document root is retrieval-only: edit files
 with normal repository tools and run `sync` afterward. A canonical proposal
-returns a diff and token; a separate apply call rejects the proposal if any
-target file changed in the meantime.
+with `apply=true` writes patch edits in one call; a `replace_file` over an
+existing file returns a diff and token for `apply_plan_change`. Applying a token
+rejects the proposal if any target file changed in the meantime.
 
 Shared heading relations connect chunks in different files with up to five
 neighbors per heading. Tune the cap with
