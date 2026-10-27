@@ -22,7 +22,8 @@ def main():
     journal, kind, out = pathlib.Path(sys.argv[1]), sys.argv[2], pathlib.Path(sys.argv[3])
     label_of = {}
     results = []  # (label, result) in completion order
-    for line in journal.read_text().splitlines():
+    # split('\n'), not splitlines(): agent text can hold U+2028 and other separators inside a JSON string
+    for line in journal.read_text().split('\n'):
         if not line.strip():
             continue
         event = json.loads(line)
